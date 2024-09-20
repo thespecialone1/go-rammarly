@@ -1,6 +1,6 @@
 module github.com/thespecialone1/go-rammerly
 
-go 1.23.1
+go 1.23.0
 
 require (
 	github.com/google/generative-ai-go v0.18.0
