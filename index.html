@@ -10,6 +10,7 @@
     <nav>
         <a href="/">Home</a>
         <a href="/">Go-rammarly</a>
+        <a href="/frontend/image-analysis.html">Image Analysis</a>
     </nav>
     <h2>Improve your writing with AI-powered grammar correction</h2>
     <form action="/generate" method="post">
@@ -20,6 +21,17 @@
     {{if .CorrectedText}}
     <h3>Corrected Text:</h3>
     <p>{{.CorrectedText}}</p>
+    {{end}}
+
+    <h2 id="image-analysis">Image Analysis</h2>
+    <form action="/analyze-image" method="post" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*">
+        <br>
+        <input type="submit" value="Analyze Image">
+    </form>
+    {{if .ImageAnalysis}}
+    <h3>Image Analysis:</h3>
+    <p>{{.ImageAnalysis}}</p>
     {{end}}
 </body>
 </html>
