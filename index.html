@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go-rammarly</title>
+</head>
+<body>
+    <h1>Go-rammarly</h1>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/">Go-rammarly</a>
+    </nav>
+    <h2>Improve your writing with AI-powered grammar correction</h2>
+    <form action="/generate" method="post">
+        <textarea name="text" rows="10" cols="50" placeholder="Enter your text here...">{{.OriginalText}}</textarea>
+        <br>
+        <input type="submit" value="Generate">
+    </form>
+    {{if .CorrectedText}}
+    <h3>Corrected Text:</h3>
+    <p>{{.CorrectedText}}</p>
+    {{end}}
+</body>
+</html>
