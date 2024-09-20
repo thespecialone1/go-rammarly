@@ -9,6 +9,7 @@ import (
     "net/http"
     "os"
 
+    "github.com/gin-gonic/gin"
     "github.com/google/generative-ai-go/genai"
     "github.com/joho/godotenv"
     "google.golang.org/api/option"
@@ -33,10 +34,12 @@ func main() {
     http.HandleFunc("/", handleHome)
     http.HandleFunc("/generate", handleGenerate)
     http.HandleFunc("/analyze-image", handleImageAnalysis)
-
+   
     fmt.Println("Server is running on http://127.0.0.1:8080")
     log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))
 }
+
+
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
     tmpl.Execute(w, nil)
@@ -137,4 +140,20 @@ func analyzeImage(imageData []byte) string {
     }
 
     return "No analysis generated."
+}
+
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }
