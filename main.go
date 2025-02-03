@@ -24,9 +24,18 @@ type PageData struct {
 var tmpl *template.Template
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	// Use Port enviroment variable provided by Render
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"	// default port if not set
+	}
+
+	// Load .env only in development
+	if os.Getenv("GO_ENV") != "production" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
 	}
 
 	tmpl = template.Must(template.ParseFiles("templates/index.html"))
@@ -38,8 +47,8 @@ func main() {
 	http.HandleFunc("/generate", handleGenerate)
 	http.HandleFunc("/analyze-image", handleAnalyzeImage)
 
-	fmt.Println("Server is running on http://localhost:8080")
-	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))
+	fmt.Printf("Server is running on http://localhost:%s\n", port)
+	log.Fatal(http.ListenAndServe("0.0.0.0:"+port, nil))
 }
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
