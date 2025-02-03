@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
@@ -15,10 +18,10 @@ import (
 )
 
 type PageData struct {
-	CurrentPage    string
-	OriginalText   string
-	CorrectedText  string
-	ImageAnalysis  string
+	CurrentPage   string
+	OriginalText  string
+	CorrectedText string
+	ImageAnalysis string
 }
 
 var tmpl *template.Template
@@ -27,7 +30,7 @@ func main() {
 	// Use Port enviroment variable provided by Render
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"	// default port if not set
+		port = "8080" // default port if not set
 	}
 
 	// Load .env only in development
@@ -79,6 +82,12 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	originalText := r.FormValue("text")
+	
+	// Save to CSV
+	if err := saveTextToCSV(originalText); err != nil {
+		log.Printf("Error saving text: %v", err)
+	}
+
 	correctedText := callGrammarAPI(originalText)
 
 	data := PageData{
@@ -95,17 +104,28 @@ func handleAnalyzeImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("image")
+	file, header, err := r.FormFile("image")
 	if err != nil {
 		http.Error(w, "Error retrieving the file", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
+	// Generate unique filename
+	ext := filepath.Ext(header.Filename)
+	if ext == "" {
+		ext = ".bin"
+	}
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 	imageData, err := io.ReadAll(file)
 	if err != nil {
 		http.Error(w, "Error reading the file", http.StatusInternalServerError)
 		return
+	}
+
+	// Save image
+	if err := saveImageToFile(imageData, filename); err != nil {
+		log.Printf("Error saving image: %v", err)
 	}
 
 	analysis := analyzeImage(imageData)
@@ -114,6 +134,36 @@ func handleAnalyzeImage(w http.ResponseWriter, r *http.Request) {
 		ImageAnalysis: analysis,
 	}
 	tmpl.Execute(w, data)
+}
+
+func saveTextToCSV(text string) error {
+	// Create data directory if not exists
+	if err := os.MkdirAll("data", 0755); err != nil {
+		return err
+	}
+
+	// Open CSV file in append mode
+	file, err := os.OpenFile("data/text.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	return writer.Write([]string{text})
+}
+
+func saveImageToFile(data []byte, filename string) error {
+	// Create images directory if not exists
+	if err := os.MkdirAll("data/images", 0755); err != nil {
+		return err
+	}
+
+	// Create file path
+	filePath := filepath.Join("data/images", filename)
+	return os.WriteFile(filePath, data, 0644)
 }
 
 func callGrammarAPI(text string) string {
