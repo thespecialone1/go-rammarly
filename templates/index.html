@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>go-rammarly</title>
+    <style>
+        :root {
+            --primary-color: #000;
+            --background-color: #fff;
+            --border-color: #e0e0e0;
+            --hover-color: #f5f5f5;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            color: var(--primary-color);
+            background: var(--background-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+        }
+
+        nav {
+            margin: 2rem 0;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        nav a {
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-right: 2rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+
+        nav a:hover {
+            background: var(--hover-color);
+        }
+
+        main {
+            flex: 1;
+        }
+
+        .container {
+            background: var(--background-color);
+            padding: 2rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-top: 2rem;
+        }
+
+        textarea, input[type="file"] {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: inherit;
+            margin: 1rem 0;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        input[type="submit"] {
+            background: var(--primary-color);
+            color: var(--background-color);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 4px;
+            transition: opacity 0.2s ease;
+        }
+
+        input[type="submit"]:hover {
+            opacity: 0.9;
+        }
+
+        .result {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: var(--hover-color);
+            border-radius: 4px;
+        }
+
+        footer {
+            margin-top: 2rem;
+            padding: 1rem 0;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>go-rammarly</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/grammar">Grammar Check</a>
+            <a href="/image-analysis">Image Analysis</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="container">
+            {{if eq .CurrentPage "home"}}
+                <h2>Welcome to go-rammarly</h2>
+                <p>Choose a service from the navigation menu above:</p>
+                <ul>
+                    <li>Grammar Check - Improve your writing with AI-powered corrections</li>
+                    <li>Image Analysis - Get detailed descriptions of your images</li>
+                </ul>
+            {{end}}
+
+            {{if eq .CurrentPage "grammar"}}
+                <h2>Improve your writing with AI-powered grammar correction</h2>
+                <form action="/generate" method="post">
+                    <textarea name="text" placeholder="Enter your text here...">{{.OriginalText}}</textarea>
+                    <br>
+                    <input type="submit" value="Generate">
+                </form>
+                {{if .CorrectedText}}
+                <div class="result">
+                    <h3>Corrected Text:</h3>
+                    <p>{{.CorrectedText}}</p>
+                </div>
+                {{end}}
+            {{end}}
+
+            {{if eq .CurrentPage "image-analysis"}}
+                <h2>Image Analysis</h2>
+                <form action="/analyze-image" method="post" enctype="multipart/form-data">
+                    <input type="file" name="image" accept="image/*">
+                    <br>
+                    <input type="submit" value="Analyze Image">
+                </form>
+                {{if .ImageAnalysis}}
+                <div class="result">
+                    <h3>Image Analysis:</h3>
+                    <p>{{.ImageAnalysis}}</p>
+                </div>
+                {{end}}
+            {{end}}
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 go-rammarly. All rights reserved.</p>
+    </footer>
+</body>
+</html>
