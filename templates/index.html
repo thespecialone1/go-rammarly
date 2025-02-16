@@ -1,167 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>go-rammarly</title>
-    <style>
-        :root {
-            --primary-color: #000;
-            --background-color: #fff;
-            --border-color: #e0e0e0;
-            --hover-color: #f5f5f5;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-            color: var(--primary-color);
-            background: var(--background-color);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            border-bottom: 2px solid var(--primary-color);
-            padding-bottom: 0.5rem;
-        }
-
-        nav {
-            margin: 2rem 0;
-            padding: 1rem 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        nav a {
-            color: var(--primary-color);
-            text-decoration: none;
-            margin-right: 2rem;
-            padding: 0.5rem 1rem;
-            border: 1px solid var(--border-color);
-            transition: all 0.2s ease;
-        }
-
-        nav a:hover {
-            background: var(--hover-color);
-        }
-
-        main {
-            flex: 1;
-        }
-
-        .container {
-            background: var(--background-color);
-            padding: 2rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            margin-top: 2rem;
-        }
-
-        textarea, input[type="file"] {
-            width: 100%;
-            padding: 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-family: inherit;
-            margin: 1rem 0;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 150px;
-        }
-
-        input[type="submit"] {
-            background: var(--primary-color);
-            color: var(--background-color);
-            border: none;
-            padding: 0.75rem 1.5rem;
-            cursor: pointer;
-            font-size: 1rem;
-            border-radius: 4px;
-            transition: opacity 0.2s ease;
-        }
-
-        input[type="submit"]:hover {
-            opacity: 0.9;
-        }
-
-        .result {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: var(--hover-color);
-            border-radius: 4px;
-        }
-
-        footer {
-            margin-top: 2rem;
-            padding: 1rem 0;
-            border-top: 1px solid var(--border-color);
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>go-rammarly</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/grammar">Grammar Check</a>
-            <a href="/image-analysis">Image Analysis</a>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>go-rammarly</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-fade-in {
+                animation: fadeIn 0.5s ease-out;
+            }
+            .animate-scale-in {
+                animation: scaleIn 0.3s ease-out;
+            }
+            @keyframes scaleIn {
+                from { transform: scale(0.95); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+            }
+        </style>
+    </head>
+<body class="min-h-screen bg-orange-50/30 flex flex-col items-center">
+    <header class="w-full max-w-4xl px-4">
+        <h1 class="text-4xl font-bold text-gray-800 mt-8 mb-6 pb-4 border-b-2 border-orange-200">go-rammarly</h1>
+        <nav class="flex gap-4 mb-8 border-b border-orange-100 pb-4">
+            <a href="/" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-orange-100/50 transition-colors duration-200 border border-transparent hover:border-orange-200">
+                Home
+            </a>
+            <a href="/grammar" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-orange-100/50 transition-colors duration-200 border border-transparent hover:border-orange-200">
+                Grammar Check
+            </a>
+            <a href="/image-analysis" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-orange-100/50 transition-colors duration-200 border border-transparent hover:border-orange-200">
+                Image Analysis
+            </a>
         </nav>
     </header>
 
-    <main>
-        <div class="container">
+    <main class="w-full max-w-4xl px-4 flex-1">
+        <div class="animate-scale-in bg-white rounded-xl shadow-sm border border-orange-100 p-6 mb-8">
+            <!-- Content sections remain same but update their classes -->
             {{if eq .CurrentPage "home"}}
-                <h2>Welcome to go-rammarly</h2>
-                <p>Choose a service from the navigation menu above:</p>
-                <ul>
-                    <li>Grammar Check - Improve your writing with AI-powered corrections</li>
-                    <li>Image Analysis - Get detailed descriptions of your images</li>
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Welcome to go-rammarly</h2>
+                <p class="text-gray-600 mb-4">Choose a service from the navigation menu above:</p>
+                <ul class="space-y-3">
+                    <li class="flex items-start">
+                        <span class="text-orange-500 mr-2">•</span>
+                        <span class="text-gray-700"><strong>Grammar Check</strong> - Improve your writing with AI-powered corrections</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-orange-500 mr-2">•</span>
+                        <span class="text-gray-700"><strong>Image Analysis</strong> - Get detailed descriptions of your images</span>
+                    </li>
                 </ul>
             {{end}}
 
             {{if eq .CurrentPage "grammar"}}
-                <h2>Improve your writing with AI-powered grammar correction</h2>
-                <form action="/generate" method="post">
-                    <textarea name="text" placeholder="Enter your text here...">{{.OriginalText}}</textarea>
-                    <br>
-                    <input type="submit" value="Generate">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Improve your writing with AI-powered grammar correction</h2>
+                <form action="/generate" method="post" class="animate-scale-in">
+                    <textarea name="text" 
+                        class="w-full px-4 py-3 rounded-lg border border-orange-200 focus:ring-2 focus:ring-orange-300 focus:border-orange-300 transition-all duration-200 placeholder-gray-400 text-gray-700"
+                        placeholder="Enter your text here..."
+                        rows="6">{{.OriginalText}}</textarea>
+                    <div class="mt-4 flex justify-end">
+                        <input type="submit" 
+                            value="Generate"
+                            class="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
+                    </div>
                 </form>
                 {{if .CorrectedText}}
-                <div class="result">
-                    <h3>Corrected Text:</h3>
-                    <p>{{.CorrectedText}}</p>
+                <div class="animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
+                    <h3 class="text-lg font-medium text-gray-800 mb-3">Corrected Text:</h3>
+                    <p class="text-gray-700 leading-relaxed">{{.CorrectedText}}</p>
                 </div>
                 {{end}}
             {{end}}
 
             {{if eq .CurrentPage "image-analysis"}}
-                <h2>Image Analysis</h2>
-                <form action="/analyze-image" method="post" enctype="multipart/form-data">
-                    <input type="file" name="image" accept="image/*">
-                    <br>
-                    <input type="submit" value="Analyze Image">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Image Analysis</h2>
+                <form action="/analyze-image" method="post" enctype="multipart/form-data" class="animate-scale-in">
+                    <div class="flex items-center gap-4">
+                        <input type="file" name="image" accept="image/*"
+                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
+                        <input type="submit" 
+                            value="Analyze Image"
+                            class="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
+                    </div>
                 </form>
                 {{if .ImageAnalysis}}
-                <div class="result">
-                    <h3>Image Analysis:</h3>
-                    <p>{{.ImageAnalysis}}</p>
+                <div class="animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
+                    <h3 class="text-lg font-medium text-gray-800 mb-3">Image Analysis:</h3>
+                    <p class="text-gray-700 leading-relaxed">{{.ImageAnalysis}}</p>
                 </div>
                 {{end}}
             {{end}}
         </div>
     </main>
 
-    <footer>
+    <footer class="w-full max-w-4xl px-4 mt-8 mb-6 text-center text-gray-500 text-sm">
         <p>&copy; 2025 go-rammarly. All rights reserved.</p>
     </footer>
 </body>
