@@ -161,9 +161,29 @@
     function copyResult() {
       const container = document.getElementById('formatted-response');
       const text = container.innerText;
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Copied to clipboard!');
-      });
+navigator.clipboard.writeText(text).then(() => {
+  // Create a notification element
+  const notification = document.createElement('div');
+  notification.textContent = 'Copied to clipboard!';
+  notification.style.position = 'fixed';
+  notification.style.bottom = '20px';
+  notification.style.right = '20px';
+  notification.style.padding = '10px 20px';
+  notification.style.background = '#333';
+  notification.style.color = 'white';
+  notification.style.borderRadius = '5px';
+  notification.style.zIndex = '1000';
+  notification.style.transition = 'opacity 0.5s';
+  
+  // Add to document
+  document.body.appendChild(notification);
+  
+  // Remove notification after 2 seconds
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    setTimeout(() => notification.remove(), 500);
+  }, 2000);
+});
     }
   </script>
 </body>
