@@ -35,8 +35,7 @@ func main() {
 
 	// Load .env only in development
 	if os.Getenv("GO_ENV") != "production" {
-		err := godotenv.Load()
-		if err != nil {
+		if err := godotenv.Load(); err != nil {
 			log.Fatal("Error loading .env file")
 		}
 	}
@@ -50,6 +49,8 @@ func main() {
 	http.HandleFunc("/image-analysis", handleImageAnalysis)
 	http.HandleFunc("/generate", handleGenerate)
 	http.HandleFunc("/analyze-image", handleAnalyzeImage)
+	// Serve manifest.json and service-worker.js from a "static" folder.
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	fmt.Printf("Server is running on http://localhost:%s\n", port)
 	log.Fatal(http.ListenAndServe("0.0.0.0:"+port, nil))
@@ -77,7 +78,6 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	originalText := r.FormValue("text")
-
 	// Save to CSV
 	if err := saveTextToCSV(originalText); err != nil {
 		log.Printf("Error saving text: %v", err)
@@ -95,10 +95,10 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") != "" {
 		partial := `
         {{if .CorrectedText}}
-        <div id="grammar-result" class="animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
+        <div id="grammar-result" class="skeleton animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
             <div class="flex justify-between items-center">
                 <h3 class="text-lg font-medium text-gray-800 mb-3">Corrected Text:</h3>
-                <button id="copy-btn" class="text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded" onclick="copyResult()">Copy</button>
+                <button id="copy-btn" class="ripple text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded" onclick="copyResult()">Copy</button>
             </div>
             <div id="formatted-response" class="text-gray-700 leading-relaxed">{{.CorrectedText}}</div>
         </div>
@@ -142,7 +142,7 @@ func handleAnalyzeImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save image
+	// Save image locally
 	if err := saveImageToFile(imageData, filename); err != nil {
 		log.Printf("Error saving image: %v", err)
 	}
@@ -157,7 +157,7 @@ func handleAnalyzeImage(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") != "" {
 		partial := `
         {{if .ImageAnalysis}}
-        <div id="image-result" class="animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
+        <div id="image-result" class="skeleton animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
             <h3 class="text-lg font-medium text-gray-800 mb-3">Image Analysis:</h3>
             <div class="text-gray-700 leading-relaxed">{{.ImageAnalysis}}</div>
         </div>
@@ -181,7 +181,6 @@ func saveTextToCSV(text string) error {
 	if err := os.MkdirAll("data", 0755); err != nil {
 		return err
 	}
-
 	// Open CSV file in append mode
 	file, err := os.OpenFile("data/text.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -191,7 +190,6 @@ func saveTextToCSV(text string) error {
 
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
-
 	return writer.Write([]string{text})
 }
 
@@ -200,13 +198,16 @@ func saveImageToFile(data []byte, filename string) error {
 	if err := os.MkdirAll("data/images", 0755); err != nil {
 		return err
 	}
-
-	// Create file path
 	filePath := filepath.Join("data/images", filename)
 	return os.WriteFile(filePath, data, 0644)
 }
 
+// callGrammarAPI returns a dummy response in test mode.
 func callGrammarAPI(text string) string {
+	// if os.Getenv("TEST_MODE") == "true" {
+	// 	return "Test Mode: This is a dummy corrected text. **Example Bold** text. Enjoy testing!"
+	// }
+
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("API_KEY")))
 	if err != nil {
@@ -230,7 +231,12 @@ func callGrammarAPI(text string) string {
 	return "No response generated."
 }
 
+// analyzeImage returns a dummy analysis in test mode.
 func analyzeImage(imageData []byte) string {
+	// if os.Getenv("TEST_MODE") == "true" {
+	// 	return "Test Mode: This is a dummy image analysis. The image is described as vibrant and meme-worthy."
+	// }
+
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("API_KEY")))
 	if err != nil {

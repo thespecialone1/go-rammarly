@@ -4,12 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>go-rammarly</title>
+  
+  <!-- Tailwind via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Include HTMX for partial updates -->
+  <!-- HTMX for partial updates -->
   <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-  <!-- Include Marked.js for Markdown formatting -->
+  <!-- Marked.js for Markdown parsing -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <!-- PWA manifest -->
+  <link rel="manifest" href="/static/manifest.json" />
+  
   <style>
+    /* Animations */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -24,21 +31,52 @@
     .animate-scale-in {
       animation: scaleIn 0.3s ease-out forwards;
     }
-    /* Loading spinner styles */
-    .spinner {
-      border: 4px solid rgba(0, 0, 0, 0.1);
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border-left-color: #f97316;
-      animation: spin 1s linear infinite;
+    /* Skeleton loader style (a gray animated block) */
+    .skeleton {
+      background-color: #e5e7eb;
+      position: relative;
+      overflow: hidden;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .skeleton::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -150px;
+      height: 100%;
+      width: 150px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      animation: loading 1.5s infinite;
+    }
+    @keyframes loading {
+      from { left: -150px; }
+      to { left: 100%; }
+    }
+    /* Ripple effect on buttons */
+    .ripple {
+      position: relative;
+      overflow: hidden;
+    }
+    .ripple::after {
+      content: "";
+      position: absolute;
+      background: rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+      width: 10px;
+      height: 10px;
+      opacity: 0;
+      transform: scale(10);
+      pointer-events: none;
+      transition: opacity 0.6s, transform 0.6s;
+    }
+    .ripple:active::after {
+      opacity: 1;
+      transform: scale(0);
+      transition: 0s;
     }
   </style>
 </head>
 <body class="min-h-screen bg-orange-50/30 flex flex-col items-center">
+  <!-- Header (removed dark mode toggle) -->
   <header class="w-full max-w-4xl px-4">
     <h1 class="text-4xl font-bold text-gray-800 mt-8 mb-6 pb-4 border-b-2 border-orange-200">go-rammarly</h1>
     <nav class="flex gap-4 mb-8 border-b border-orange-100 pb-4">
@@ -73,15 +111,17 @@
 
       {{if eq .CurrentPage "grammar"}}
       <h2 class="text-2xl font-semibold text-gray-800 mb-6">Improve your writing with AI-powered grammar correction</h2>
-      <form hx-post="/generate" hx-target="#grammar-result" hx-swap="innerHTML" class="animate-scale-in" onsubmit="showSpinner('grammar-spinner')">
+      <form hx-post="/generate" hx-target="#grammar-result" hx-swap="innerHTML" class="animate-scale-in" onsubmit="showSkeleton('grammar-skel')">
         <textarea name="text" class="w-full px-4 py-3 rounded-lg border border-orange-200 focus:ring-2 focus:ring-orange-300 focus:border-orange-300 transition-all duration-200 placeholder-gray-400 text-gray-700" placeholder="Enter your text here..." rows="6">{{.OriginalText}}</textarea>
         <div class="mt-4 flex justify-end">
           <input type="submit" value="Generate" class="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
         </div>
       </form>
-      <!-- Loading spinner for grammar -->
-      <div id="grammar-spinner" class="mt-4 flex justify-center hidden">
-        <div class="spinner"></div>
+      <!-- Skeleton loader for grammar (hidden by default) -->
+      <div id="grammar-skel" class="mt-4 hidden">
+        <div class="skeleton h-10 w-full mb-2"></div>
+        <div class="skeleton h-10 w-full mb-2"></div>
+        <div class="skeleton h-10 w-full"></div>
       </div>
       <!-- Container for the grammar result -->
       <div id="grammar-result">
@@ -89,7 +129,7 @@
         <div class="animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
           <div class="flex justify-between items-center">
             <h3 class="text-lg font-medium text-gray-800 mb-3">Corrected Text:</h3>
-            <button id="copy-btn" class="text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded" onclick="copyResult()">Copy</button>
+            <button id="copy-btn" class="ripple text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded" onclick="copyResult()">Copy</button>
           </div>
           <div id="formatted-response" class="text-gray-700 leading-relaxed">{{.CorrectedText}}</div>
         </div>
@@ -99,22 +139,27 @@
 
       {{if eq .CurrentPage "image-analysis"}}
       <h2 class="text-2xl font-semibold text-gray-800 mb-6">Image Analysis</h2>
-      <form hx-post="/analyze-image" hx-target="#image-result" hx-swap="innerHTML" enctype="multipart/form-data" class="animate-scale-in" onsubmit="showSpinner('image-spinner')">
+      <form hx-post="/analyze-image" hx-target="#image-result" hx-swap="innerHTML" enctype="multipart/form-data" class="animate-scale-in" onsubmit="showSkeleton('image-skel')">
         <div class="flex items-center gap-4">
-          <input type="file" name="image" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
+          <input type="file" name="image" accept="image/*" loading="lazy" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
           <input type="submit" value="Analyze Image" class="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
         </div>
       </form>
-      <!-- Loading spinner for image analysis -->
-      <div id="image-spinner" class="mt-4 flex justify-center hidden">
-        <div class="spinner"></div>
+      <!-- Skeleton loader for image analysis (hidden by default) -->
+      <div id="image-skel" class="mt-4 hidden">
+        <div class="skeleton h-10 w-full mb-2"></div>
+        <div class="skeleton h-10 w-full mb-2"></div>
+        <div class="skeleton h-10 w-full"></div>
       </div>
       <!-- Container for the image analysis result -->
       <div id="image-result">
         {{if .ImageAnalysis}}
         <div class="animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
-          <h3 class="text-lg font-medium text-gray-800 mb-3">Image Analysis:</h3>
-          <div class="text-gray-700 leading-relaxed">{{.ImageAnalysis}}</div>
+          <div class="flex justify-between items-center">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Image Analysis:</h3>
+            <button id="copy-image-btn" class="ripple text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded" onclick="copyImageResult()">Copy</button>
+          </div>
+          <div id="formatted-image-response" class="text-gray-700 leading-relaxed">{{.ImageAnalysis}}</div>
         </div>
         {{end}}
       </div>
@@ -126,30 +171,37 @@
     <p>&copy; 2025 go-rammarly. All rights reserved.</p>
   </footer>
 
+  <!-- Service Worker registration for PWA -->
   <script>
-    // Show spinner when form is submitted
-    function showSpinner(id) {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/service-worker.js')
+      .then(reg => console.log("Service Worker registered", reg))
+      .catch(err => console.log("Service Worker registration failed", err));
+    }
+
+    // Show skeleton loader (hide result until loaded)
+    function showSkeleton(id) {
       document.getElementById(id).classList.remove('hidden');
     }
-    // Hide spinner and animate response after HTMX swap
+
+    // After HTMX swap, hide skeletons and animate responses
     document.body.addEventListener('htmx:afterSwap', function(event) {
       if (event.detail.target.id === 'grammar-result') {
-        document.getElementById('grammar-spinner').classList.add('hidden');
-        animateResponse();
+        document.getElementById('grammar-skel').classList.add('hidden');
+        animateResponse('formatted-response');
       }
       if (event.detail.target.id === 'image-result') {
-        document.getElementById('image-spinner').classList.add('hidden');
+        document.getElementById('image-skel').classList.add('hidden');
+        animateResponse('formatted-image-response');
       }
     });
 
-    // Animate the response: convert Markdown to HTML and apply fade-in to each paragraph
-    function animateResponse() {
-      const container = document.getElementById('formatted-response');
+    // Animate and format the response: convert Markdown to HTML and apply fade-in to paragraphs
+    function animateResponse(containerId) {
+      const container = document.getElementById(containerId);
       if (!container) return;
       const rawText = container.textContent.trim();
-      // Convert markdown to HTML using marked.js
       container.innerHTML = marked.parse(rawText);
-      // Add fade-in animation with staggered delays to each paragraph
       const paragraphs = container.querySelectorAll('p');
       paragraphs.forEach((p, index) => {
         p.style.animationDelay = (index * 0.1) + 's';
@@ -157,8 +209,8 @@
       });
     }
 
-    // Copy the formatted text to clipboard
-    function copyResult() {
+        // Copy the formatted text to clipboard
+        function copyResult() {
       const container = document.getElementById('formatted-response');
       const text = container.innerText;
 navigator.clipboard.writeText(text).then(() => {
@@ -184,6 +236,15 @@ navigator.clipboard.writeText(text).then(() => {
     setTimeout(() => notification.remove(), 500);
   }, 2000);
 });
+    }
+    
+    // Copy the formatted text (for image analysis)
+    function copyImageResult() {
+      const container = document.getElementById('formatted-image-response');
+      const text = container.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Copied to clipboard!');
+      });
     }
   </script>
 </body>
