@@ -11,6 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"github.com/gorilla/sessions"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
@@ -23,6 +30,157 @@ type PageData struct {
 	CorrectedText string
 	ImageAnalysis string
 }
+
+// Create a session store (use a strong key in production)
+var store = sessions.NewCookieStore([]byte("your-very-secret-key"))
+func init() {
+    if os.Getenv("GO_ENV") != "production" {
+        if err := godotenv.Load(); err != nil {
+            log.Fatal("Error loading .env file")
+        }
+    }
+    // Check if the client ID is set
+    if os.Getenv("GOOGLE_CLIENT_ID") == "" {
+        log.Fatal("GOOGLE_CLIENT_ID is not set")
+    }
+}
+
+// Set up the OAuth2 configuration using your Google credentials and desired scopes.
+// Change this from a variable to a function
+func getGoogleOAuthConfig() *oauth2.Config {
+    return &oauth2.Config{
+        RedirectURL:  "http://localhost:8080/auth/google/callback",
+        ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+        ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+        Scopes: []string{
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+        },
+        Endpoint: google.Endpoint,
+    }
+}
+
+// generateStateToken creates a random string to be used as the OAuth2 state parameter.
+func generateStateToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// ----- 2a. CREATE THE LOGIN INITIATION ROUTE (/auth/google) -----
+
+func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	// Get the config when needed
+    googleOauthConfig := getGoogleOAuthConfig()
+	// Generate a random state token to help protect against CSRF attacks.
+	state, err := generateStateToken()
+	if err != nil {
+		http.Error(w, "Failed to generate state token", http.StatusInternalServerError)
+		return
+	}
+
+	// Store the state token in the session.
+	session, err := store.Get(r, "session-name")
+	if err != nil {
+		http.Error(w, "Unable to get session", http.StatusInternalServerError)
+		return
+	}
+	session.Values["state"] = state
+	if err := session.Save(r, w); err != nil {
+		http.Error(w, "Failed to save session", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate the Google OAuth URL and redirect the user.
+    authURL := googleOauthConfig.AuthCodeURL(state)
+    http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
+}
+// ----- 2b. CREATE THE CALLBACK ROUTE (/auth/google/callback) -----
+
+func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+	// Get the config when needed
+    googleOauthConfig := getGoogleOAuthConfig()
+	// Retrieve the session to validate the state token.
+	session, err := store.Get(r, "session-name")
+	if err != nil {
+		http.Error(w, "Unable to get session", http.StatusInternalServerError)
+		return
+	}
+	storedState, ok := session.Values["state"].(string)
+	if !ok || storedState == "" {
+		http.Error(w, "Invalid session state", http.StatusBadRequest)
+		return
+	}
+
+	// Validate that the state parameter matches.
+	queryState := r.URL.Query().Get("state")
+	if queryState != storedState {
+		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve the authorization code from the URL query.
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "Code not found", http.StatusBadRequest)
+		return
+	}
+
+	// Exchange the authorization code for an access token.
+	token, err := googleOauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		http.Error(w, "Failed to exchange code for token", http.StatusInternalServerError)
+		return
+	}
+
+	// Use the access token to fetch user information.
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	if err != nil {
+		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, "Failed to read user info", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse the JSON response containing user information.
+	var userInfo struct {
+		ID            string `json:"id"`
+		Email         string `json:"email"`
+		VerifiedEmail bool   `json:"verified_email"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
+	}
+	if err := json.Unmarshal(data, &userInfo); err != nil {
+		http.Error(w, "Failed to parse user info", http.StatusInternalServerError)
+		return
+	}
+
+	// Establish a session for the authenticated user.
+	session.Values["user_id"] = userInfo.ID
+	session.Values["user_email"] = userInfo.Email
+	session.Values["user_name"] = userInfo.Name
+	session.Values["picture"] = userInfo.Picture
+	// Optionally, you could store the user's picture or other details.
+	// Remove the state token since it’s no longer needed.
+	delete(session.Values, "state")
+	if err := session.Save(r, w); err != nil {
+		http.Error(w, "Failed to save session", http.StatusInternalServerError)
+		return
+	}else{
+	}
+
+	// Redirect the user to the homepage (or a protected page).
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+
 
 var tmpl *template.Template
 
@@ -49,6 +207,11 @@ func main() {
 	http.HandleFunc("/image-analysis", handleImageAnalysis)
 	http.HandleFunc("/generate", handleGenerate)
 	http.HandleFunc("/analyze-image", handleAnalyzeImage)
+
+	// ----- Register the Google OAuth routes -----
+	http.HandleFunc("/auth/google", handleGoogleLogin)
+	http.HandleFunc("/auth/google/callback", handleGoogleCallback)
+
 	// Serve manifest.json and service-worker.js from a "static" folder.
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
@@ -204,9 +367,6 @@ func saveImageToFile(data []byte, filename string) error {
 
 // callGrammarAPI returns a dummy response in test mode.
 func callGrammarAPI(text string) string {
-	// if os.Getenv("TEST_MODE") == "true" {
-	// 	return "Test Mode: This is a dummy corrected text. **Example Bold** text. Enjoy testing!"
-	// }
 
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("API_KEY")))
