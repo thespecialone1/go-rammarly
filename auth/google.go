@@ -1,0 +1,334 @@
+package auth
+
+import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gorilla/sessions"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+
+	"github.com/thespecialone1/go-rammerly/db"
+)
+
+const (
+	// SessionName is the name used for the cookie session store
+	SessionName = "user-session"
+	
+	// SessionMaxAge defines how long the session should last
+	SessionMaxAge = 86400 // 1 day in seconds
+	
+	// StateTokenSize is the number of random bytes for the state token
+	StateTokenSize = 32
+)
+
+// GoogleUserInfo represents the user information returned from Google OAuth
+type GoogleUserInfo struct {
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	VerifiedEmail bool   `json:"verified_email"`
+	Name          string `json:"name"`
+	Picture       string `json:"picture"`
+}
+
+// SessionStore provides access to the session storage
+var SessionStore *sessions.CookieStore
+
+// Queries is a global pointer to the sqlc–generated queries.
+// It will be set from main.go once the database connection is established.
+var Queries *db.Queries
+
+// InitSessionStore sets up the session store with proper configuration
+func InitSessionStore(secretKey string) {
+	if secretKey == "" {
+		secretKey = "a-very-long-and-random-secret-key"
+		log.Println("WARNING: Using default session secret key. Set a proper key in production.")
+	}
+	
+	SessionStore = sessions.NewCookieStore([]byte(secretKey))
+	SessionStore.Options = &sessions.Options{
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   os.Getenv("ENVIRONMENT") == "production", // Only secure in production
+		MaxAge:   SessionMaxAge,
+	}
+}
+
+// GetGoogleOAuthConfig returns the OAuth2 configuration for Google.
+func GetGoogleOAuthConfig() *oauth2.Config {
+	redirectURL := os.Getenv("OAUTH_REDIRECT_URL")
+	if redirectURL == "" {
+		redirectURL = "http://localhost:8080/auth/google/callback"
+	}
+	
+	return &oauth2.Config{
+		RedirectURL:  redirectURL,
+		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile",
+		},
+		Endpoint: google.Endpoint,
+	}
+}
+
+// generateStateToken creates a random token to mitigate CSRF attacks.
+func generateStateToken() (string, error) {
+	b := make([]byte, StateTokenSize)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate random state token: %w", err)
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// HandleGoogleLogin initiates the Google OAuth login process.
+func HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	config := GetGoogleOAuthConfig()
+	
+	// Generate and store the state token
+	state, err := generateStateToken()
+	if err != nil {
+		log.Printf("State token generation error: %v", err)
+		http.Error(w, "Authentication initialization failed", http.StatusInternalServerError)
+		return
+	}
+
+	session, err := SessionStore.Get(r, SessionName)
+	if err != nil {
+		log.Printf("Session retrieval error: %v", err)
+		http.Error(w, "Session error", http.StatusInternalServerError)
+		return
+	}
+	
+	// Store state in session and save
+	session.Values["state"] = state
+	session.Values["state_expiry"] = time.Now().Add(5 * time.Minute).Unix() // State expires in 5 minutes
+	
+	if err := session.Save(r, w); err != nil {
+		log.Printf("Session save error: %v", err)
+		http.Error(w, "Failed to save session", http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect to Google's OAuth consent page
+	authURL := config.AuthCodeURL(state)
+	http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
+}
+
+// HandleGoogleCallback handles the OAuth callback, inserts user info into the database, and saves the session.
+func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+	// Get the session
+	session, err := SessionStore.Get(r, SessionName)
+	if err != nil {
+		log.Printf("Session retrieval error in callback: %v", err)
+		http.Error(w, "Session error", http.StatusInternalServerError)
+		return
+	}
+
+	// Verify state parameter to prevent CSRF
+	if err := validateState(r, session); err != nil {
+		log.Printf("State validation error: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Exchange the authorization code for a token
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "Authorization code not found", http.StatusBadRequest)
+		return
+	}
+
+	config := GetGoogleOAuthConfig()
+	token, err := config.Exchange(context.Background(), code)
+	if err != nil {
+		log.Printf("Token exchange error: %v", err)
+		http.Error(w, "Authentication failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Get user info from Google
+	userInfo, err := fetchGoogleUserInfo(token.AccessToken)
+	if err != nil {
+		log.Printf("User info fetch error: %v", err)
+		http.Error(w, "Failed to get user information", http.StatusInternalServerError)
+		return
+	}
+
+	// Process user in database
+	user, err := processUser(r.Context(), userInfo)
+	if err != nil {
+		log.Printf("User processing error: %v", err)
+		http.Error(w, "User account processing failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Save user session
+	if err := saveUserSession(r, w, session, user); err != nil {
+		log.Printf("Session save error: %v", err)
+		http.Error(w, "Failed to save user session", http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect to home
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+// validateState verifies the state parameter to prevent CSRF attacks
+func validateState(r *http.Request, session *sessions.Session) error {
+	storedState, ok := session.Values["state"].(string)
+	if !ok || storedState == "" {
+		return fmt.Errorf("invalid session state")
+	}
+
+	// Check if state has expired
+	expiry, ok := session.Values["state_expiry"].(int64)
+	if ok && time.Now().Unix() > expiry {
+		return fmt.Errorf("state token expired")
+	}
+
+	// Verify state matches
+	if r.URL.Query().Get("state") != storedState {
+		return fmt.Errorf("state parameter mismatch")
+	}
+
+	return nil
+}
+
+// fetchGoogleUserInfo retrieves the user information from Google's userinfo endpoint
+func fetchGoogleUserInfo(accessToken string) (*GoogleUserInfo, error) {
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("user info request failed with status: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var userInfo GoogleUserInfo
+	if err := json.Unmarshal(body, &userInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse user info JSON: %w", err)
+	}
+
+	return &userInfo, nil
+}
+
+// processUser checks if the user exists in the database and creates a new record if necessary
+func processUser(ctx context.Context, userInfo *GoogleUserInfo) (*db.User, error) {
+	// Check if user exists
+	existingUser, err := Queries.GetUserByGoogleID(ctx, userInfo.ID)
+	if err == nil {
+		// User found
+		return &existingUser, nil
+	}
+	
+	if err != sql.ErrNoRows {
+		// Unexpected database error
+		return nil, fmt.Errorf("database query error: %w", err)
+	}
+
+	// Create new user
+	newUser, err := Queries.CreateUser(ctx, db.CreateUserParams{
+		GoogleID: userInfo.ID,
+		Email:    userInfo.Email,
+		Name:     userInfo.Name,
+		Picture: sql.NullString{
+			String: userInfo.Picture,
+			Valid:  userInfo.Picture != "",
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+	
+	log.Printf("Created new user with ID: %d", newUser.ID)
+	return &newUser, nil
+}
+
+// saveUserSession saves the user information in the session
+func saveUserSession(r *http.Request, w http.ResponseWriter, session *sessions.Session, user *db.User) error {
+	// Save user data in session
+	session.Values["user_id"] = user.ID
+	session.Values["user_email"] = user.Email
+	session.Values["user_name"] = user.Name
+	session.Values["picture"] = user.Picture.String
+	session.Values["google_id"] = user.GoogleID // Store Google ID for GetCurrentUser function
+	
+	// Clear the state after successful authentication
+	delete(session.Values, "state")
+	delete(session.Values, "state_expiry")
+
+	// Save the session
+	return session.Save(r, w)
+}
+
+// GetSession retrieves the user session for the given request.
+func GetSession(r *http.Request) (*sessions.Session, error) {
+	return SessionStore.Get(r, SessionName)
+}
+
+// GetCurrentUser returns the current authenticated user from the session, or nil if not logged in
+func GetCurrentUser(r *http.Request) (*db.User, error) {
+	session, err := GetSession(r)
+	if err != nil {
+		return nil, fmt.Errorf("session error: %w", err)
+	}
+
+	userID, ok := session.Values["user_id"].(int64)
+	if !ok || userID == 0 {
+		return nil, nil // No user logged in
+	}
+
+	// Get the Google ID from the session
+	googleID, ok := session.Values["google_id"].(string)
+	if !ok || googleID == "" {
+		return nil, fmt.Errorf("user session data incomplete")
+	}
+
+	user, err := Queries.GetUserByGoogleID(r.Context(), googleID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user: %w", err)
+	}
+
+	return &user, nil
+}
+
+// RequireAuthentication is a middleware that ensures a user is logged in
+func RequireAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, err := GetSession(r)
+		if err != nil {
+			http.Error(w, "Session error", http.StatusInternalServerError)
+			return
+		}
+
+		if _, ok := session.Values["user_id"].(int64); !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// init initializes the session store with default settings
+func init() {
+	InitSessionStore("")
+}
