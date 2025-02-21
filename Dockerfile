@@ -1,36 +1,30 @@
-# Use the official Go image as a base
-FROM golang:1.21-alpine AS builder
-
-# Set working directory
+# Stage 1: Build the binary
+FROM golang:1.20-alpine AS builder
 WORKDIR /app
 
-# Copy go mod and sum files
-COPY go.mod go.sum ./
+# Install necessary build tools
+RUN apk add --no-cache git
 
-# Download dependencies
+# Copy go.mod and go.sum, then download modules
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the source code
+# Copy the entire source code.
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+# Build the app. We assume your main file is at cmd/app/main.go.
+RUN CGO_ENABLED=1 GOOS=linux go build -o app ./cmd/app
 
-# Start a new stage from scratch
-FROM alpine:latest  
-
-# Install CA certificates for HTTPS
+# Stage 2: Create a minimal image with the binary.
+FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-
 WORKDIR /root/
-
-# Copy the pre-built binary file from the previous stage
-COPY --from=builder /app/main .
-COPY --from=builder /app/templates ./templates
-COPY --from=builder /app/.env .
-
-# Expose port 8080
+# Copy the built binary from the builder stage.
+COPY --from=builder /app/app .
+# (Optional) Copy the .env file if you want to include it.
+# It’s usually better to inject these as environment variables.
+COPY .env . 
+# Expose the port your app listens on.
 EXPOSE 8080
-
-# Command to run the executable
-CMD ["./main"]
+# Run the binary.
+CMD ["./app"]

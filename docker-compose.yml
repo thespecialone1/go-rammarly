@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-rammerly_app
+    restart: always
+    expose:
+      - "8080"  # The app listens on port 8080 inside the container.
+    environment:
+      - PORT=8080
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+    volumes:
+      - ./.env:/root/.env       # Optional: if you want to use your local .env
+      - ./db.sqlite:/app/db.sqlite  # Persist your SQLite database file.
+  
+  caddy:
+    image: caddy:2
+    container_name: caddy_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
