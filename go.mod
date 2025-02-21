@@ -1,6 +1,6 @@
 module github.com/thespecialone1/go-rammerly
 
-go 1.22.7
+go 1.23
 
 // Replace the module with the current local directory.
 replace github.com/thespecialone1/go-rammerly => .
@@ -9,7 +9,7 @@ toolchain go1.23.3
 
 require (
 	github.com/google/generative-ai-go v0.18.0
-	github.com/gorilla/sessions v1.1.1
+	github.com/gorilla/sessions v1.4.0
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/oauth2 v0.26.0
 	google.golang.org/api v0.220.0
@@ -32,7 +32,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
-	github.com/gorilla/securecookie v1.1.1 // indirect
+	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -29,6 +30,27 @@ const (
 	
 	// StateTokenSize is the number of random bytes for the state token
 	StateTokenSize = 32
+	
+	// Local development URL
+	localBaseURL = "http://localhost:8080"
+	
+	// Production URL
+	productionBaseURL = "https://go-rammarly.onrender.com"
+)
+
+// Environment variables
+const (
+	EnvEnvironment    = "ENVIRONMENT"
+	EnvGoogleClientID = "GOOGLE_CLIENT_ID"
+	EnvGoogleClientSecret = "GOOGLE_CLIENT_SECRET"
+	EnvSessionSecret  = "SESSION_SECRET_KEY"
+	EnvRedirectURL    = "OAUTH_REDIRECT_URL"
+)
+
+// Environment types
+const (
+	EnvDevelopment = "development"
+	EnvProduction  = "production"
 )
 
 // GoogleUserInfo represents the user information returned from Google OAuth
@@ -47,33 +69,69 @@ var SessionStore *sessions.CookieStore
 // It will be set from main.go once the database connection is established.
 var Queries *db.Queries
 
+// IsProduction returns true if the current environment is production
+func IsProduction() bool {
+	return strings.ToLower(os.Getenv(EnvEnvironment)) == EnvProduction
+}
+
+// GetBaseURL returns the appropriate base URL based on environment
+func GetBaseURL() string {
+	if IsProduction() {
+		return productionBaseURL
+	}
+	return localBaseURL
+}
+
 // InitSessionStore sets up the session store with proper configuration
-func InitSessionStore(secretKey string) {
+func InitSessionStore() {
+	secretKey := os.Getenv(EnvSessionSecret)
 	if secretKey == "" {
-		secretKey = "a-very-long-and-random-secret-key"
-		log.Println("WARNING: Using default session secret key. Set a proper key in production.")
+		secretKey = generateRandomSecret()
+		log.Println("WARNING: Using auto-generated session secret key. Set SESSION_SECRET_KEY environment variable in production.")
 	}
 	
 	SessionStore = sessions.NewCookieStore([]byte(secretKey))
 	SessionStore.Options = &sessions.Options{
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   os.Getenv("ENVIRONMENT") == "production", // Only secure in production
+		Secure:   IsProduction(), // Secure in production
 		MaxAge:   SessionMaxAge,
+		SameSite: http.SameSiteLaxMode,
 	}
+}
+
+// generateRandomSecret creates a cryptographically secure random key for sessions
+func generateRandomSecret() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to a static key if random generation fails
+		log.Printf("Failed to generate random secret: %v", err)
+		return "a-very-long-and-random-secret-key-for-fallback-use-only"
+	}
+	return base64.StdEncoding.EncodeToString(b)
 }
 
 // GetGoogleOAuthConfig returns the OAuth2 configuration for Google.
 func GetGoogleOAuthConfig() *oauth2.Config {
-	redirectURL := os.Getenv("OAUTH_REDIRECT_URL")
+	// Check for custom redirect URL first
+	redirectURL := os.Getenv(EnvRedirectURL)
+	
+	// If not set, construct from base URL
 	if redirectURL == "" {
-		redirectURL = "http://localhost:8080/auth/google/callback"
+		redirectURL = GetBaseURL() + "/auth/google/callback"
+	}
+	
+	clientID := os.Getenv(EnvGoogleClientID)
+	clientSecret := os.Getenv(EnvGoogleClientSecret)
+	
+	if clientID == "" || clientSecret == "" {
+		log.Println("WARNING: Google OAuth credentials missing or incomplete")
 	}
 	
 	return &oauth2.Config{
 		RedirectURL:  redirectURL,
-		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
 			"https://www.googleapis.com/auth/userinfo.profile",
@@ -328,7 +386,45 @@ func RequireAuthentication(next http.Handler) http.Handler {
 	})
 }
 
-// init initializes the session store with default settings
+// LogoutHandler clears the user session
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	session, err := GetSession(r)
+	if err != nil {
+		http.Error(w, "Session error", http.StatusInternalServerError)
+		return
+	}
+	
+	// Clear session values
+	session.Values = make(map[interface{}]interface{})
+	
+	// Set session to expire immediately
+	session.Options.MaxAge = -1
+	
+	if err := session.Save(r, w); err != nil {
+		log.Printf("Session clear error: %v", err)
+		http.Error(w, "Failed to log out", http.StatusInternalServerError)
+		return
+	}
+	
+	// Redirect to home
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+// init initializes the session store with environment-specific settings
 func init() {
-	InitSessionStore("")
+	InitSessionStore()
+	
+	// Log environment information
+	if IsProduction() {
+		log.Println("Running in PRODUCTION environment")
+		log.Printf("Using production base URL: %s", productionBaseURL)
+	} else {
+		log.Println("Running in DEVELOPMENT environment")
+		log.Printf("Using local base URL: %s", localBaseURL)
+	}
+	
+	// Check if session secret is set
+	if os.Getenv(EnvSessionSecret) == "" && IsProduction() {
+		log.Println("WARNING: No session secret key set in production environment. Set SESSION_SECRET_KEY for better security.")
+	}
 }
