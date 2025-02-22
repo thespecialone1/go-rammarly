@@ -12,15 +12,15 @@ import (
 	"github.com/thespecialone1/go-rammerly/auth"
 	"github.com/thespecialone1/go-rammerly/db"
 	"github.com/thespecialone1/go-rammerly/handlers"
-	"github.com/joho/godotenv"
+	_"github.com/joho/godotenv"
+	"github.com/thespecialone1/go-rammerly/config"
 )
 
 func main() {
-	// Load environment variables from .env file
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, relying on environment variables")
+	// Load environment configuration
+	if err := config.LoadEnv(); err != nil {
+		log.Fatalf("Failed to load environment: %v", err)
 	}
-
 	// Open the SQLite database (db.sqlite will be created if it doesn't exist)
 	dbConn, err := sql.Open("sqlite", "./db.sqlite")
 	if err != nil {

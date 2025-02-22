@@ -31,11 +31,10 @@ const (
 	// StateTokenSize is the number of random bytes for the state token
 	StateTokenSize = 32
 	
-	// Local development URL
-	localBaseURL = "http://localhost:8080"
-	
-	// Production URL
-	productionBaseURL = "https://go-rammarly.onrender.com"
+	// Environment URLs
+	localDevURL     = "http://localhost:8080"
+	renderDevURL    = "https://go-rammarly.onrender.com"
+	productionURL   = "https://go-rammarly.duckdns.org"
 )
 
 // Environment variables
@@ -49,9 +48,27 @@ const (
 
 // Environment types
 const (
-	EnvDevelopment = "development"
+	EnvLocalDev    = "local"
+	EnvRenderDev   = "render"
 	EnvProduction  = "production"
 )
+
+// GetEnvironment determines the current environment
+func GetEnvironment() string {
+	env := strings.ToLower(os.Getenv(EnvEnvironment))
+	
+	switch env {
+	case EnvLocalDev:
+		return EnvLocalDev
+	case EnvRenderDev:
+		return EnvRenderDev
+	case EnvProduction:
+		return EnvProduction
+	default:
+		// Default to local development if not specified
+		return EnvLocalDev
+	}
+}
 
 // GoogleUserInfo represents the user information returned from Google OAuth
 type GoogleUserInfo struct {
@@ -71,15 +88,21 @@ var Queries *db.Queries
 
 // IsProduction returns true if the current environment is production
 func IsProduction() bool {
-	return strings.ToLower(os.Getenv(EnvEnvironment)) == EnvProduction
+	return GetEnvironment() == EnvProduction
 }
 
 // GetBaseURL returns the appropriate base URL based on environment
 func GetBaseURL() string {
-	if IsProduction() {
-		return productionBaseURL
+	switch GetEnvironment() {
+	case EnvLocalDev:
+		return localDevURL
+	case EnvRenderDev:
+		return renderDevURL
+	case EnvProduction:
+		return productionURL
+	default:
+		return localDevURL
 	}
-	return localBaseURL
 }
 
 // InitSessionStore sets up the session store with proper configuration
@@ -94,7 +117,7 @@ func InitSessionStore() {
 	SessionStore.Options = &sessions.Options{
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   IsProduction(), // Secure in production
+		Secure:   GetEnvironment() != EnvLocalDev, // Only insecure in local development
 		MaxAge:   SessionMaxAge,
 		SameSite: http.SameSiteLaxMode,
 	}
@@ -415,15 +438,11 @@ func init() {
 	InitSessionStore()
 	
 	// Log environment information
-	if IsProduction() {
-		log.Println("Running in PRODUCTION environment")
-		log.Printf("Using production base URL: %s", productionBaseURL)
-	} else {
-		log.Println("Running in DEVELOPMENT environment")
-		log.Printf("Using local base URL: %s", localBaseURL)
-	}
+	env := GetEnvironment()
+	log.Printf("Running in %s environment", strings.ToUpper(env))
+	log.Printf("Using base URL: %s", GetBaseURL())
 	
-	// Check if session secret is set
+	/// Check if session secret is set
 	if os.Getenv(EnvSessionSecret) == "" && IsProduction() {
 		log.Println("WARNING: No session secret key set in production environment. Set SESSION_SECRET_KEY for better security.")
 	}
