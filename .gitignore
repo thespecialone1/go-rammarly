@@ -35,3 +35,6 @@ data/
 .env*
 # Except the example file
 !.env.example
+.env.local
+.env.render
+.env.production
