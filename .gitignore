@@ -30,3 +30,8 @@ Thumbs.db
 
 # Data directory
 data/
+
+# Ignore all .env files
+.env*
+# Except the example file
+!.env.example
