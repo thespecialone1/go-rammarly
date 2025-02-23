@@ -409,29 +409,53 @@ func RequireAuthentication(next http.Handler) http.Handler {
 	})
 }
 
-// LogoutHandler clears the user session
+// // LogoutHandler clears the user session
+// func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+// 	session, err := GetSession(r)
+// 	if err != nil {
+// 		http.Error(w, "Session error", http.StatusInternalServerError)
+// 		return
+// 	}
+	
+// 	// Clear session values
+// 	session.Values = make(map[interface{}]interface{})
+	
+// 	// Set session to expire immediately
+// 	session.Options.MaxAge = -1
+	
+// 	if err := session.Save(r, w); err != nil {
+// 		log.Printf("Session clear error: %v", err)
+// 		http.Error(w, "Failed to log out", http.StatusInternalServerError)
+// 		return
+// 	}
+	
+// 	// Redirect to home
+// 	http.Redirect(w, r, "/", http.StatusFound)
+// }
+
+// LogoutHandler clears the user session and invalidates the session cookie.
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	session, err := GetSession(r)
-	if err != nil {
-		http.Error(w, "Session error", http.StatusInternalServerError)
-		return
-	}
-	
-	// Clear session values
-	session.Values = make(map[interface{}]interface{})
-	
-	// Set session to expire immediately
-	session.Options.MaxAge = -1
-	
-	if err := session.Save(r, w); err != nil {
-		log.Printf("Session clear error: %v", err)
-		http.Error(w, "Failed to log out", http.StatusInternalServerError)
-		return
-	}
-	
-	// Redirect to home
-	http.Redirect(w, r, "/", http.StatusFound)
+    session, err := GetSession(r)
+    if err != nil {
+        http.Error(w, "Session error", http.StatusInternalServerError)
+        return
+    }
+
+    // Clear session values and set MaxAge to -1 to expire the cookie immediately.
+    session.Values = make(map[interface{}]interface{})
+    session.Options.MaxAge = -1
+
+    if err := session.Save(r, w); err != nil {
+        log.Printf("Session clear error: %v", err)
+        http.Error(w, "Failed to log out", http.StatusInternalServerError)
+        return
+    }
+    
+    log.Println("User successfully logged out.")
+    // Redirect to the home page after logout.
+    http.Redirect(w, r, "/", http.StatusFound)
 }
+
 
 // init initializes the session store with environment-specific settings
 func init() {

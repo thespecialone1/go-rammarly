@@ -56,6 +56,8 @@ func main() {
 	http.HandleFunc("/image-analysis", handlers.HandleImageAnalysis)
 	http.HandleFunc("/generate", handlers.HandleGenerate)
 	http.HandleFunc("/analyze-image", handlers.HandleAnalyzeImage)
+	http.HandleFunc("/logout", auth.LogoutHandler)
+
 
 	// Google OAuth routes.
 	http.HandleFunc("/auth/google", auth.HandleGoogleLogin)

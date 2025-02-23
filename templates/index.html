@@ -2,258 +2,600 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>go-rammarly</title>
+
+  <!-- Google Fonts: Lato -->
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
   
-  <!-- Tailwind via CDN -->
+  <!-- Tailwind & HTMX -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- HTMX for partial updates -->
   <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-  <!-- Marked.js for Markdown parsing -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  
-  <!-- PWA manifest -->
-  <link rel="manifest" href="/static/manifest.json" />
-  
+
   <style>
-    /* Animations */
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+    :root {
+      --primary-bg: #02343F;
+      --text-color: #F0EDCC;
+      --input-bg: rgba(240, 237, 204, 0.1);
+      --hover-color: #e6e3be;
     }
-    .animate-fade-in {
-      animation: fadeIn 0.5s ease-out forwards;
-    }
-    @keyframes scaleIn {
-      from { transform: scale(0.95); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-    .animate-scale-in {
-      animation: scaleIn 0.3s ease-out forwards;
-    }
-    /* Skeleton loader style (a gray animated block) */
-    .skeleton {
-      background-color: #e5e7eb;
+
+    /* Base Styles */
+    body {
+      font-family: 'Lato', sans-serif;
+      background-color: var(--primary-bg);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       position: relative;
-      overflow: hidden;
+      overflow-x: hidden;
     }
-    .skeleton::after {
-      content: "";
-      position: absolute;
+
+    /* Animated Background */
+    body::before {
+      content: '';
+      position: fixed;
       top: 0;
-      left: -150px;
+      left: 0;
+      width: 100%;
       height: 100%;
-      width: 150px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      animation: loading 1.5s infinite;
+      background: linear-gradient(
+        45deg,
+        rgba(2, 52, 63, 0.8),
+        rgba(2, 52, 63, 0.9),
+        rgba(2, 52, 63, 0.8)
+      );
+      background-size: 200% 200%;
+      animation: gradientBG 15s ease infinite;
+      z-index: -1;
     }
-    @keyframes loading {
-      from { left: -150px; }
-      to { left: 100%; }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
     }
-    /* Ripple effect on buttons */
-    .ripple {
-      position: relative;
-      overflow: hidden;
-    }
-    .ripple::after {
-      content: "";
-      position: absolute;
-      background: rgba(255, 255, 255, 0.4);
+
+    /* Particles */
+    .particle {
+      position: fixed;
+      background: rgba(240, 237, 204, 0.1);
       border-radius: 50%;
-      width: 10px;
-      height: 10px;
-      opacity: 0;
-      transform: scale(10);
       pointer-events: none;
-      transition: opacity 0.6s, transform 0.6s;
+      z-index: 0;
     }
-    .ripple:active::after {
-      opacity: 1;
-      transform: scale(0);
-      transition: 0s;
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      50% { transform: translateY(-20px) translateX(10px); }
+    }
+
+    /* Form Elements */
+    textarea {
+      background-color: var(--input-bg) !important;
+      color: var(--text-color) !important;
+      border: 1px solid rgba(240, 237, 204, 0.2);
+      transition: all 0.3s ease;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      border-color: var(--text-color);
+      box-shadow: 0 0 0 2px rgba(240, 237, 204, 0.2);
+      background-color: rgba(240, 237, 204, 0.15) !important;
+      outline: none;
+    }
+
+    /* Button Styles */
+    .light-btn {
+      background-color: var(--text-color);
+      color: var(--primary-bg);
+      transition: all 0.3s ease;
+    }
+
+    .light-btn:hover:not(:disabled) {
+      background-color: var(--hover-color);
+      transform: translateY(-1px);
+    }
+
+    .light-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Content Containers */
+    .column-bg {
+      background-color: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(240, 237, 204, 0.2);
+      backdrop-filter: blur(5px);
+    }
+
+    .content-panel {
+      height: 300px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--text-color) transparent;
+      position: relative;
+    }
+
+    .content-panel::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .content-panel::-webkit-scrollbar-thumb {
+      background-color: rgba(240, 237, 204, 0.3);
+      border-radius: 3px;
+    }
+
+    /* Message Animations */
+    .message-in {
+      animation: slideIn 0.3s ease-out forwards;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      border: 3px solid rgba(240, 237, 204, 0.3);
+      border-top: 3px solid var(--text-color);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: none;
+      display: none;
+    }
+
+    .spinner.active {
+      display: block;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Recent Activity Panel */
+    .recent-activity {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s ease-out;
+    }
+    .recent-activity.visible {
+      max-height: 500px;
+    }
+    .recent-activity .toggle-buttons button {
+      margin-right: 0.5rem;
+    }
+    .recent-section {
+      display: none;
+    }
+    .recent-section.active {
+      display: block;
+    }
+
+    /* Copy Button Style */
+    .copy-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .grid-cols-12 {
+        grid-template-columns: 1fr !important;
+      }
+      
+      .col-span-3, .col-span-6 {
+        grid-column: span 1 / span 1 !important;
+      }
+
+      .content-panel {
+        height: 200px;
+      }
+      /* Stack header items on mobile */
+      header nav > div {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
-<body class="min-h-screen bg-orange-50/30 flex flex-col items-center">
-  <!-- Header (removed dark mode toggle) -->
-  <header class="w-full max-w-4xl px-4">
-    <h1 class="text-4xl font-bold text-gray-800 mt-8 mb-6 pb-4 border-b-2 border-orange-200">go-rammarly</h1>
-    <nav class="flex gap-4 mb-8 border-b border-orange-100 pb-4">
-      <a href="/" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-orange-100/50 transition-colors duration-200 border border-transparent hover:border-orange-200">
-        Home
-      </a>
-      <a href="/grammar" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-orange-100/50 transition-colors duration-200 border border-transparent hover:border-orange-200">
-        Grammar Check
-      </a>
-      <a href="/image-analysis" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-orange-100/50 transition-colors duration-200 border border-transparent hover:border-orange-200">
-        Image Analysis
-      </a>
+
+<body>
+  <!-- Particle Container -->
+  <div id="particles"></div>
+
+  <!-- Header -->
+  <header class="w-full max-w-7xl px-4 mt-6 mb-4 flex flex-col md:flex-row items-center justify-between z-10">
+    <h1 class="text-3xl font-bold hover:scale-105 transition-transform duration-300">
+      go-rammarly
+    </h1>
+    <nav>
       {{if .User}}
-		<p>Logged in as: {{.User.Name}} ({{.User.Email}})</p>
-		<img src="{{.User.Picture}}" alt="Profile Picture" width="100">
-	{{else}}
-      <a href="/auth/google" class="btn-google px-4 py-2 rounded-lg text-gray-600 hover:bg-orange-100/50 transition-colors duration-200 border border-transparent hover:border-orange-200">
-        Log In
-      </a>
-    {{end}}
+        <div class="flex items-center gap-4">
+          <button onclick="toggleRecentActivity()" 
+                  class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">
+            Recent Activity
+          </button>
+          <a href="/logout" 
+             class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">
+            Logout
+          </a>
+          <div class="flex items-center gap-2">
+            <img src="{{.User.Picture}}" 
+                 alt="Profile Picture" 
+                 class="w-8 h-8 rounded-full ring-2 ring-[#F0EDCC] transition-transform hover:scale-110 border border-transparent">
+            <span class="font-medium">{{.User.Name}}</span>
+          </div>
+        </div>
+      {{else}}
+        <a href="/auth/google" 
+           class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg hover:scale-105">
+          Log In
+        </a>
+      {{end}}
     </nav>
   </header>
 
-  <main class="w-full max-w-4xl px-4 flex-1">
-    <div class="animate-scale-in bg-white rounded-xl shadow-sm border border-orange-100 p-6 mb-8">
-      {{if eq .CurrentPage "home"}}
-      <h2 class="text-2xl font-semibold text-gray-800 mb-4">Welcome to go-rammarly</h2>
-      <p class="text-gray-600 mb-4">Choose a service from the navigation menu above:</p>
-      <ul class="space-y-3">
-        <li class="flex items-start">
-          <span class="text-orange-500 mr-2">•</span>
-          <span class="text-gray-700"><strong>Grammar Check</strong> - Improve your writing with AI-powered corrections</span>
-        </li>
-        <li class="flex items-start">
-          <span class="text-orange-500 mr-2">•</span>
-          <span class="text-gray-700"><strong>Image Analysis</strong> - Get detailed descriptions of your images</span>
-        </li>
-      </ul>
-      {{end}}
-
-      {{if eq .CurrentPage "grammar"}}
-      <h2 class="text-2xl font-semibold text-gray-800 mb-6">Improve your writing with AI-powered grammar correction</h2>
-      <form hx-post="/generate" hx-target="#grammar-result" hx-swap="innerHTML" class="animate-scale-in" onsubmit="showSkeleton('grammar-skel')">
-        <textarea name="text" class="w-full px-4 py-3 rounded-lg border border-orange-200 focus:ring-2 focus:ring-orange-300 focus:border-orange-300 transition-all duration-200 placeholder-gray-400 text-gray-700" placeholder="Enter your text here..." rows="6">{{.OriginalText}}</textarea>
-        <div class="mt-4 flex justify-end">
-          <input type="submit" value="Generate" class="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
-        </div>
-      </form>
-      <!-- Skeleton loader for grammar (hidden by default) -->
-      <div id="grammar-skel" class="mt-4 hidden">
-        <div class="skeleton h-10 w-full mb-2"></div>
-        <div class="skeleton h-10 w-full mb-2"></div>
-        <div class="skeleton h-10 w-full"></div>
-      </div>
-      <!-- Container for the grammar result -->
-      <div id="grammar-result">
-        {{if .CorrectedText}}
-        <div class="animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
-          <div class="flex justify-between items-center">
-            <h3 class="text-lg font-medium text-gray-800 mb-3">Corrected Text:</h3>
-            <button id="copy-btn" class="ripple text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded" onclick="copyResult()">Copy</button>
-          </div>
-          <div id="formatted-response" class="text-gray-700 leading-relaxed">{{.CorrectedText}}</div>
-        </div>
-        {{end}}
-      </div>
-      {{end}}
-
-      {{if eq .CurrentPage "image-analysis"}}
-      <h2 class="text-2xl font-semibold text-gray-800 mb-6">Image Analysis</h2>
-      <form hx-post="/analyze-image" hx-target="#image-result" hx-swap="innerHTML" enctype="multipart/form-data" class="animate-scale-in" onsubmit="showSkeleton('image-skel')">
-        <div class="flex items-center gap-4">
-          <input type="file" name="image" accept="image/*" loading="lazy" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
-          <input type="submit" value="Analyze Image" class="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
-        </div>
-      </form>
-      <!-- Skeleton loader for image analysis (hidden by default) -->
-      <div id="image-skel" class="mt-4 hidden">
-        <div class="skeleton h-10 w-full mb-2"></div>
-        <div class="skeleton h-10 w-full mb-2"></div>
-        <div class="skeleton h-10 w-full"></div>
-      </div>
-      <!-- Container for the image analysis result -->
-      <div id="image-result">
-        {{if .ImageAnalysis}}
-        <div class="animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
-          <div class="flex justify-between items-center">
-            <h3 class="text-lg font-medium text-gray-800 mb-3">Image Analysis:</h3>
-            <button id="copy-image-btn" class="ripple text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded" onclick="copyImageResult()">Copy</button>
-          </div>
-          <div id="formatted-image-response" class="text-gray-700 leading-relaxed">{{.ImageAnalysis}}</div>
-        </div>
-        {{end}}
-      </div>
-      {{end}}
+  <!-- Recent Activity Section -->
+  {{if .User}}
+  <div id="recent-activity" class="recent-activity w-full max-w-7xl px-4 mb-8">
+    <div class="toggle-buttons flex gap-4 mb-4">
+      <button id="btn-recent-texts" class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg" onclick="showRecent('text')">Recent Texts</button>
+      <button id="btn-recent-images" class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg" onclick="showRecent('image')">Recent Images</button>
     </div>
+    <div id="recent-texts" class="recent-section"></div>
+    <div id="recent-images" class="recent-section"></div>
+  </div>
+  {{end}}
+
+  <main class="w-full max-w-7xl px-4 flex-1 z-10">
+    <!-- Service Selection -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Choose a service</h2>
+      <nav class="flex gap-4">
+        <a href="#text-analysis" 
+           class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">
+          Text Analysis
+        </a>
+        <a href="#image-analysis" 
+           class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">
+          Image Analysis
+        </a>
+      </nav>
+    </section>
+
+    <!-- Text Analysis Section -->
+    <section id="text-analysis" class="mb-12">
+      <h3 class="text-xl font-semibold mb-4">Improve your writing</h3>
+      <div class="grid grid-cols-12 gap-4">
+        <!-- User Messages -->
+        <div id="text-user-messages" 
+             class="col-span-3 content-panel rounded p-3 column-bg">
+        </div>
+
+        <!-- Input Form -->
+        <div class="col-span-6 column-bg rounded p-4">
+          <form id="text-form"
+                hx-post="/generate"
+                hx-target="#text-api-responses"
+                hx-swap="beforeend"
+                class="flex flex-col gap-3">
+            
+            <textarea id="text-input"
+                      name="text"
+                      rows="4"
+                      class="w-full px-3 py-2 rounded"
+                      placeholder="Enter your text..."
+                      required></textarea>
+
+            <div class="flex items-center justify-end gap-3">
+              <div class="spinner" id="text-spinner"></div>
+              <button type="submit"
+                      class="px-5 py-2 font-medium rounded light-btn transition-all duration-300 hover:shadow-lg"
+                      disabled>
+                Generate
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- API Responses -->
+        <div id="text-api-responses" 
+             class="col-span-3 content-panel rounded p-3 column-bg">
+        </div>
+      </div>
+    </section>
+
+    <!-- Image Analysis Section -->
+    <section id="image-analysis" class="mb-12">
+      <h3 class="text-xl font-semibold mb-4">Analyze your image</h3>
+      <div class="grid grid-cols-12 gap-4">
+        <!-- User Images -->
+        <div id="image-user-messages" 
+             class="col-span-3 content-panel rounded p-3 column-bg">
+        </div>
+
+        <!-- Upload Form -->
+        <div class="col-span-6 column-bg rounded p-4">
+          <form id="image-form"
+                hx-post="/analyze-image"
+                hx-target="#image-api-responses"
+                hx-swap="beforeend"
+                enctype="multipart/form-data"
+                class="flex flex-col gap-3">
+            
+            <label for="image-input"
+                   class="block w-full text-center px-4 py-3 rounded light-btn cursor-pointer transition-all duration-300 hover:shadow-lg">
+              Upload Image
+            </label>
+            <input type="file"
+                   id="image-input"
+                   name="image"
+                   accept="image/*"
+                   class="hidden"
+                   onchange="handleImageUpload(this)">
+
+            <div class="flex items-center justify-end gap-3">
+              <div class="spinner" id="image-spinner"></div>
+              <button type="submit"
+                      class="px-5 py-2 font-medium rounded light-btn transition-all duration-300 hover:shadow-lg"
+                      disabled>
+                Analyze Image
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- API Responses -->
+        <div id="image-api-responses" 
+             class="col-span-3 content-panel rounded p-3 column-bg">
+        </div>
+      </div>
+    </section>
   </main>
 
-  <footer class="w-full max-w-4xl px-4 mt-8 mb-6 text-center text-gray-500 text-sm">
+  <footer class="w-full max-w-7xl px-4 py-6 text-center text-sm z-10">
     <p>&copy; 2025 go-rammarly. All rights reserved.</p>
   </footer>
 
-  <!-- Service Worker registration for PWA -->
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/static/service-worker.js')
-      .then(reg => console.log("Service Worker registered", reg))
-      .catch(err => console.log("Service Worker registration failed", err));
-    }
-
-    // Show skeleton loader (hide result until loaded)
-    function showSkeleton(id) {
-      document.getElementById(id).classList.remove('hidden');
-    }
-
-    // After HTMX swap, hide skeletons and animate responses
-    document.body.addEventListener('htmx:afterSwap', function(event) {
-      if (event.detail.target.id === 'grammar-result') {
-        document.getElementById('grammar-skel').classList.add('hidden');
-        animateResponse('formatted-response');
+    // Particle background
+    function createParticles() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 20; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.width = Math.random() * 5 + 'px';
+        particle.style.height = particle.style.width;
+        particle.style.left = Math.random() * 100 + 'vw';
+        particle.style.top = Math.random() * 100 + 'vh';
+        particle.style.animation = `float ${5 + Math.random() * 5}s ease-in-out infinite`;
+        container.appendChild(particle);
       }
-      if (event.detail.target.id === 'image-result') {
-        document.getElementById('image-skel').classList.add('hidden');
-        animateResponse('formatted-image-response');
+    }
+
+    // Global pagination state for recent activity
+    let recentPages = { text: 1, image: 1 };
+
+    // DOM elements
+    const textInput = document.getElementById('text-input');
+    const textForm = document.getElementById('text-form');
+    const textSubmitBtn = textForm.querySelector('button[type="submit"]');
+    const textSpinner = document.getElementById('text-spinner');
+    const textUserMessages = document.getElementById('text-user-messages');
+    const textApiResponses = document.getElementById('text-api-responses');
+    const imageApiResponses = document.getElementById('image-api-responses');
+    const imageForm = document.getElementById('image-form');
+    const imageSubmitBtn = imageForm.querySelector('button[type="submit"]');
+    const imageSpinner = document.getElementById('image-spinner');
+
+    // Enable/disable submit buttons based on input
+    textInput.addEventListener('input', () => {
+      textSubmitBtn.disabled = !textInput.value.trim();
+    });
+
+    function handleImageUpload(input) {
+      imageSubmitBtn.disabled = !input.files.length;
+      if (input.files.length) {
+        const imageURL = URL.createObjectURL(input.files[0]);
+        const preview = document.createElement('div');
+        preview.className = 'message-in p-2 mb-2 rounded bg-[rgba(240,237,204,0.1)]';
+        preview.innerHTML = `
+          <img src="${imageURL}" 
+               class="w-full h-32 object-cover rounded" 
+               alt="Upload Preview">
+        `;
+        document.getElementById('image-user-messages').appendChild(preview);
+        // Store image recent activity
+        storeRecentActivity('image', imageURL);
+      }
+    }
+
+    // Function to simulate typing effect
+    function simulateTypingEffect(element, fullText, speed = 5) {
+      element.textContent = '';
+      let index = 0;
+      const interval = setInterval(() => {
+        element.textContent += fullText[index];
+        index++;
+        if(index >= fullText.length) clearInterval(interval);
+      }, speed);
+    }
+
+    // Process new API response: animate typing and add copy button.
+    function processNewResponse(node) {
+      if (!node || node.nodeType !== 1) return;
+      let fullText = node.textContent.trim();
+      // Remove any "copy" prefix if present.
+      if (fullText.toLowerCase().startsWith("copy")) {
+        fullText = fullText.substring(4).trim();
+      }
+      node.textContent = '';
+      node.classList.add('relative');
+      const span = document.createElement('span');
+      span.className = 'response-text';
+      node.appendChild(span);
+      simulateTypingEffect(span, fullText, 5);
+      
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn absolute top-2 right-2 text-sm';
+      copyBtn.textContent = '📋';
+      copyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigator.clipboard.writeText(fullText).then(() => {
+          copyBtn.textContent = '✅';
+          setTimeout(() => copyBtn.textContent = '📋', 2000);
+        });
+      });
+      node.appendChild(copyBtn);
+    }
+
+    // HTMX Events for form submission
+    document.body.addEventListener('htmx:beforeRequest', (event) => {
+      const form = event.detail.elt;
+      const spinner = form.querySelector('.spinner');
+      const submitBtn = form.querySelector('button[type="submit"]');
+      
+      spinner.classList.add('active');
+      submitBtn.disabled = true;
+
+      // For text form: append user's message and store activity
+      if (form.id === 'text-form') {
+        const message = textInput.value.trim();
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message-in p-2 mb-2 rounded bg-[rgba(240,237,204,0.1)]';
+        messageDiv.textContent = message;
+        textUserMessages.appendChild(messageDiv);
+        textUserMessages.scrollTop = textUserMessages.scrollHeight;
+        storeRecentActivity('text', message);
       }
     });
 
-    // Animate and format the response: convert Markdown to HTML and apply fade-in to paragraphs
-    function animateResponse(containerId) {
-      const container = document.getElementById(containerId);
-      if (!container) return;
-      const rawText = container.textContent.trim();
-      container.innerHTML = marked.parse(rawText);
-      const paragraphs = container.querySelectorAll('p');
-      paragraphs.forEach((p, index) => {
-        p.style.animationDelay = (index * 0.1) + 's';
-        p.classList.add('animate-fade-in');
+    document.body.addEventListener('htmx:afterRequest', (event) => {
+      const form = event.detail.elt;
+      const spinner = form.querySelector('.spinner');
+      const submitBtn = form.querySelector('button[type="submit"]');
+      
+      spinner.classList.remove('active');
+      submitBtn.disabled = false;
+
+      if (form.id === 'text-form') {
+        textInput.value = '';
+        textApiResponses.scrollTop = textApiResponses.scrollHeight;
+      } else if (form.id === 'image-form') {
+        form.reset();
+        imageApiResponses.scrollTop = imageApiResponses.scrollHeight;
+      }
+    });
+
+    // Observe new API responses in both text and image containers
+    const observerConfig = { childList: true };
+    const responseObserver = new MutationObserver((mutations) => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === 1 && !node.querySelector('.copy-btn')) {
+            processNewResponse(node);
+          }
+        });
       });
+    });
+    responseObserver.observe(textApiResponses, observerConfig);
+    responseObserver.observe(imageApiResponses, observerConfig);
+
+    // Recent Activity Management & Pagination
+
+    // Store recent activity without slicing off older items
+    function storeRecentActivity(type, content) {
+      const storageKey = `recent-${type}s`;
+      const recentItems = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      recentItems.unshift({ content, timestamp: new Date().toISOString() });
+      localStorage.setItem(storageKey, JSON.stringify(recentItems));
+      // Reset page to 1 when new activity is added
+      recentPages[type] = 1;
+      updateRecentActivity(type);
     }
 
-        // Copy the formatted text to clipboard
-        function copyResult() {
-      const container = document.getElementById('formatted-response');
-      const text = container.innerText;
-navigator.clipboard.writeText(text).then(() => {
-  // Create a notification element
-  const notification = document.createElement('div');
-  notification.textContent = 'Copied to clipboard!';
-  notification.style.position = 'fixed';
-  notification.style.bottom = '20px';
-  notification.style.right = '20px';
-  notification.style.padding = '10px 20px';
-  notification.style.background = '#333';
-  notification.style.color = 'white';
-  notification.style.borderRadius = '5px';
-  notification.style.zIndex = '1000';
-  notification.style.transition = 'opacity 0.5s';
-  
-  // Add to document
-  document.body.appendChild(notification);
-  
-  // Remove notification after 2 seconds
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    setTimeout(() => notification.remove(), 500);
-  }, 2000);
-});
+    // Update recent activity section with pagination (5 items per page)
+    function updateRecentActivity(type) {
+      const container = document.getElementById(`recent-${type}s`);
+      if (!container) return;
+      const storageKey = `recent-${type}s`;
+      const items = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const page = recentPages[type] || 1;
+      const pageSize = 5;
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const pageItems = items.slice(startIndex, endIndex);
+      
+      container.innerHTML = pageItems.map(item => `
+        <div class="message-in p-2 rounded bg-[rgba(240,237,204,0.1)] mb-2">
+          ${type === 'text' 
+            ? `<p class="text-sm">${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}</p>`
+            : `<img src="${item.content}" class="w-full h-20 object-cover rounded" alt="Recent image">`
+          }
+          <small class="block mt-1 text-xs opacity-70">
+            ${new Date(item.timestamp).toLocaleString()}
+          </small>
+        </div>
+      `).join('');
+
+      let paginationHTML = '';
+      if (page > 1) {
+        paginationHTML += `<button onclick="changePage('${type}', -1)" class="px-2 py-1 rounded light-btn mr-2">Prev</button>`;
+      }
+      if (endIndex < items.length) {
+        paginationHTML += `<button onclick="changePage('${type}', 1)" class="px-2 py-1 rounded light-btn">Next</button>`;
+      }
+      container.innerHTML += `<div class="mt-2">${paginationHTML}</div>`;
     }
-    
-    // Copy the formatted text (for image analysis)
-    function copyImageResult() {
-      const container = document.getElementById('formatted-image-response');
-      const text = container.innerText;
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Copied to clipboard!');
-      });
+
+    // Change page for recent activity
+    function changePage(type, delta) {
+      recentPages[type] = (recentPages[type] || 1) + delta;
+      updateRecentActivity(type);
     }
+
+    // Toggle between recent texts and recent images
+    function showRecent(type) {
+      const textsSection = document.getElementById('recent-texts');
+      const imagesSection = document.getElementById('recent-images');
+      if (type === 'text') {
+        textsSection.classList.add('active');
+        imagesSection.classList.remove('active');
+      } else {
+        imagesSection.classList.add('active');
+        textsSection.classList.remove('active');
+      }
+    }
+
+    // Toggle Recent Activity panel visibility
+    function toggleRecentActivity() {
+      const recentActivity = document.getElementById('recent-activity');
+      if (recentActivity) {
+        recentActivity.classList.toggle('visible');
+      }
+    }
+
+    // Initialize on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', () => {
+      createParticles();
+      updateRecentActivity('text');
+      updateRecentActivity('image');
+    });
   </script>
 </body>
 </html>

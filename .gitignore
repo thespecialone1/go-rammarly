@@ -38,3 +38,10 @@ data/
 .env.local
 .env.render
 .env.production
+
+# Ignore all .env files
+.env*
+
+# Except the example file
+!.env.example
+

@@ -8,6 +8,14 @@ import (
 	"database/sql"
 )
 
+type Activity struct {
+	ID        int64
+	UserID    int64
+	Type      string
+	Content   string
+	CreatedAt sql.NullTime
+}
+
 type User struct {
 	ID        int64
 	GoogleID  string

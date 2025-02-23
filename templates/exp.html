@@ -1,0 +1,179 @@
+[Previous HTML/CSS remains exactly the same until the script section]
+
+  <script>
+    // Create background particles
+    function createParticles() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 20; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.width = Math.random() * 5 + 'px';
+        particle.style.height = particle.style.width;
+        particle.style.left = Math.random() * 100 + 'vw';
+        particle.style.top = Math.random() * 100 + 'vh';
+        particle.style.animation = `float ${5 + Math.random() * 5}s ease-in-out infinite`;
+        container.appendChild(particle);
+      }
+    }
+
+    // Handle text input
+    const textInput = document.getElementById('text-input');
+    const textForm = document.getElementById('text-form');
+    const textSubmitBtn = textForm.querySelector('button[type="submit"]');
+    const textSpinner = document.getElementById('text-spinner');
+    const textUserMessages = document.getElementById('text-user-messages');
+    const textApiResponses = document.getElementById('text-api-responses');
+
+    textInput.addEventListener('input', () => {
+      textSubmitBtn.disabled = !textInput.value.trim();
+    });
+
+    // Handle image upload
+    const imageForm = document.getElementById('image-form');
+    const imageSubmitBtn = imageForm.querySelector('button[type="submit"]');
+    const imageSpinner = document.getElementById('image-spinner');
+    const imageUserMessages = document.getElementById('image-user-messages');
+    const imageApiResponses = document.getElementById('image-api-responses');
+
+    function handleImageUpload(input) {
+      imageSubmitBtn.disabled = !input.files.length;
+      
+      if (input.files.length) {
+        const preview = document.createElement('div');
+        preview.className = 'message-in p-2 mb-2 rounded bg-[rgba(240,237,204,0.1)]';
+        preview.innerHTML = `
+          <img src="${URL.createObjectURL(input.files[0])}" 
+               class="w-full h-32 object-cover rounded" 
+               alt="Upload Preview">
+        `;
+        imageUserMessages.appendChild(preview);
+        imageUserMessages.scrollTop = imageUserMessages.scrollHeight;
+      }
+    }
+
+    // HTMX Events
+    document.body.addEventListener('htmx:beforeRequest', (event) => {
+      const form = event.detail.elt;
+      const spinner = form.querySelector('.spinner');
+      const submitBtn = form.querySelector('button[type="submit"]');
+      
+      spinner.classList.add('active');
+      submitBtn.disabled = true;
+
+      // Add message to user panel
+      if (form.id === 'text-form') {
+        const message = textInput.value.trim();
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message-in p-2 mb-2 rounded bg-[rgba(240,237,204,0.1)]';
+        messageDiv.textContent = message;
+        textUserMessages.appendChild(messageDiv);
+        textUserMessages.scrollTop = textUserMessages.scrollHeight;
+        
+        // Store in recent activity if logged in
+        storeRecentActivity('text', message);
+      }
+    });
+
+    document.body.addEventListener('htmx:afterRequest', (event) => {
+      const form = event.detail.elt;
+      const spinner = form.querySelector('.spinner');
+      const submitBtn = form.querySelector('button[type="submit"]');
+      
+      spinner.classList.remove('active');
+      submitBtn.disabled = false;
+
+      // Clear inputs
+      if (form.id === 'text-form') {
+        textInput.value = '';
+        textApiResponses.scrollTop = textApiResponses.scrollHeight;
+      } else if (form.id === 'image-form') {
+        form.reset();
+        imageApiResponses.scrollTop = imageApiResponses.scrollHeight;
+      }
+    });
+
+    // Recent Activity Management
+    function toggleRecentActivity() {
+      const recentActivity = document.getElementById('recent-activity');
+      if (recentActivity) {
+        recentActivity.classList.toggle('visible');
+      }
+    }
+
+    function storeRecentActivity(type, content) {
+      if (!document.getElementById('recent-activity')) return;
+
+      const storageKey = `recent-${type}s`;
+      const recentItems = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      
+      recentItems.unshift({
+        content,
+        timestamp: new Date().toISOString()
+      });
+
+      // Keep only last 10 items
+      localStorage.setItem(storageKey, JSON.stringify(recentItems.slice(0, 10)));
+      updateRecentActivity(type);
+    }
+
+    function updateRecentActivity(type) {
+      const container = document.getElementById(`recent-${type}s`);
+      if (!container) return;
+
+      const storageKey = `recent-${type}s`;
+      const items = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      
+      container.innerHTML = items.map(item => `
+        <div class="message-in p-2 rounded bg-[rgba(240,237,204,0.1)]">
+          ${type === 'text' 
+            ? `<p class="text-sm">${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}</p>`
+            : `<img src="${item.content}" class="w-full h-20 object-cover rounded" alt="Recent image">`
+          }
+          <small class="block mt-1 text-xs opacity-70">
+            ${new Date(item.timestamp).toLocaleString()}
+          </small>
+        </div>
+      `).join('');
+    }
+
+    // Copy to clipboard functionality
+    function addCopyButton(element) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'mt-2 px-2 py-1 text-xs rounded light-btn transition-all duration-300 hover:shadow-lg';
+      copyBtn.textContent = 'Copy';
+      copyBtn.onclick = (e) => {
+        e.preventDefault();
+        navigator.clipboard.writeText(element.textContent)
+          .then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => copyBtn.textContent = 'Copy', 2000);
+          });
+      };
+      element.appendChild(copyBtn);
+    }
+
+    // Initialize everything
+    document.addEventListener('DOMContentLoaded', () => {
+      createParticles();
+      updateRecentActivity('text');
+      updateRecentActivity('image');
+
+      // Add copy buttons to existing responses
+      document.querySelectorAll('#text-api-responses > div').forEach(addCopyButton);
+    });
+
+    // Observer for adding copy buttons to new responses
+    const responseObserver = new MutationObserver((mutations) => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === 1 && !node.querySelector('button')) {
+            addCopyButton(node);
+          }
+        });
+      });
+    });
+
+    responseObserver.observe(textApiResponses, { childList: true });
+  </script>
+</body>
+</html>
