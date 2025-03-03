@@ -53,6 +53,16 @@ const (
 	EnvProduction  = "production"
 )
 
+// SessionStore provides access to the session storage
+var SessionStore *sessions.CookieStore
+
+// Queries is a global pointer to the sqlc–generated queries.
+// It will be set from main.go once the database connection is established.
+var Queries *db.Queries
+
+// persistentSecretKey holds the secret key to ensure it remains consistent
+var persistentSecretKey string
+
 // GetEnvironment determines the current environment
 func GetEnvironment() string {
 	env := strings.ToLower(os.Getenv(EnvEnvironment))
@@ -79,13 +89,6 @@ type GoogleUserInfo struct {
 	Picture       string `json:"picture"`
 }
 
-// SessionStore provides access to the session storage
-var SessionStore *sessions.CookieStore
-
-// Queries is a global pointer to the sqlc–generated queries.
-// It will be set from main.go once the database connection is established.
-var Queries *db.Queries
-
 // IsProduction returns true if the current environment is production
 func IsProduction() bool {
 	return GetEnvironment() == EnvProduction
@@ -107,13 +110,18 @@ func GetBaseURL() string {
 
 // InitSessionStore sets up the session store with proper configuration
 func InitSessionStore() {
-	secretKey := os.Getenv(EnvSessionSecret)
-	if secretKey == "" {
-		secretKey = generateRandomSecret()
-		log.Println("WARNING: Using auto-generated session secret key. Set SESSION_SECRET_KEY environment variable in production.")
+	// Get the secret key from environment, only once during initialization
+	if persistentSecretKey == "" {
+		persistentSecretKey = os.Getenv(EnvSessionSecret)
+		if persistentSecretKey == "" {
+			persistentSecretKey = generateRandomSecret()
+			log.Println("WARNING: Using auto-generated session secret key. Set SESSION_SECRET_KEY environment variable in production.")
+		} else {
+			log.Println("Using session secret key from environment variable")
+		}
 	}
 	
-	SessionStore = sessions.NewCookieStore([]byte(secretKey))
+	SessionStore = sessions.NewCookieStore([]byte(persistentSecretKey))
 	SessionStore.Options = &sessions.Options{
 		Path:     "/",
 		HttpOnly: true,
@@ -172,6 +180,35 @@ func generateStateToken() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
+// ClearInvalidSession removes any invalid session cookies
+func ClearInvalidSession(w http.ResponseWriter) {
+	cookie := &http.Cookie{
+		Name:     SessionName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   GetEnvironment() != EnvLocalDev,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(w, cookie)
+}
+
+// GetSessionSafe retrieves the session and handles invalid sessions gracefully
+func GetSessionSafe(w http.ResponseWriter, r *http.Request) *sessions.Session {
+	session, err := SessionStore.Get(r, SessionName)
+	if err != nil {
+		log.Printf("Session retrieval error: %v", err)
+		// Clear the invalid cookie
+		ClearInvalidSession(w)
+		// Create a fresh session
+		session = sessions.NewSession(SessionStore, SessionName)
+		session.Options = SessionStore.Options
+		session.IsNew = true
+	}
+	return session
+}
+
 // HandleGoogleLogin initiates the Google OAuth login process.
 func HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	config := GetGoogleOAuthConfig()
@@ -184,12 +221,8 @@ func HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := SessionStore.Get(r, SessionName)
-	if err != nil {
-		log.Printf("Session retrieval error: %v", err)
-		http.Error(w, "Session error", http.StatusInternalServerError)
-		return
-	}
+	// Use the safe session getter
+	session := GetSessionSafe(w, r)
 	
 	// Store state in session and save
 	session.Values["state"] = state
@@ -208,13 +241,8 @@ func HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 
 // HandleGoogleCallback handles the OAuth callback, inserts user info into the database, and saves the session.
 func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
-	// Get the session
-	session, err := SessionStore.Get(r, SessionName)
-	if err != nil {
-		log.Printf("Session retrieval error in callback: %v", err)
-		http.Error(w, "Session error", http.StatusInternalServerError)
-		return
-	}
+	// Get the session safely
+	session := GetSessionSafe(w, r)
 
 	// Verify state parameter to prevent CSRF
 	if err := validateState(r, session); err != nil {
@@ -253,6 +281,8 @@ func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "User account processing failed", http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("Login successful for user: %s (ID: %d)", user.Name, user.ID)
 
 	// Save user session
 	if err := saveUserSession(r, w, session, user); err != nil {
@@ -396,7 +426,9 @@ func RequireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := GetSession(r)
 		if err != nil {
-			http.Error(w, "Session error", http.StatusInternalServerError)
+			log.Printf("Authentication middleware - session error: %v", err)
+			ClearInvalidSession(w)
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 
@@ -409,37 +441,10 @@ func RequireAuthentication(next http.Handler) http.Handler {
 	})
 }
 
-// // LogoutHandler clears the user session
-// func LogoutHandler(w http.ResponseWriter, r *http.Request) {
-// 	session, err := GetSession(r)
-// 	if err != nil {
-// 		http.Error(w, "Session error", http.StatusInternalServerError)
-// 		return
-// 	}
-	
-// 	// Clear session values
-// 	session.Values = make(map[interface{}]interface{})
-	
-// 	// Set session to expire immediately
-// 	session.Options.MaxAge = -1
-	
-// 	if err := session.Save(r, w); err != nil {
-// 		log.Printf("Session clear error: %v", err)
-// 		http.Error(w, "Failed to log out", http.StatusInternalServerError)
-// 		return
-// 	}
-	
-// 	// Redirect to home
-// 	http.Redirect(w, r, "/", http.StatusFound)
-// }
-
 // LogoutHandler clears the user session and invalidates the session cookie.
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
-    session, err := GetSession(r)
-    if err != nil {
-        http.Error(w, "Session error", http.StatusInternalServerError)
-        return
-    }
+    // Use safe session getter instead
+    session := GetSessionSafe(w, r)
 
     // Clear session values and set MaxAge to -1 to expire the cookie immediately.
     session.Values = make(map[interface{}]interface{})
@@ -456,7 +461,6 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, "/", http.StatusFound)
 }
 
-
 // init initializes the session store with environment-specific settings
 func init() {
 	InitSessionStore()
@@ -466,7 +470,7 @@ func init() {
 	log.Printf("Running in %s environment", strings.ToUpper(env))
 	log.Printf("Using base URL: %s", GetBaseURL())
 	
-	/// Check if session secret is set
+	// Check if session secret is set
 	if os.Getenv(EnvSessionSecret) == "" && IsProduction() {
 		log.Println("WARNING: No session secret key set in production environment. Set SESSION_SECRET_KEY for better security.")
 	}

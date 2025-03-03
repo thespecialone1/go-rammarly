@@ -50,6 +50,7 @@ func main() {
 	// Initialize templates.
 	handlers.InitTemplates()
 
+
 	// Set up HTTP routes.
 	http.HandleFunc("/", handlers.HandleHome)
 	http.HandleFunc("/grammar", handlers.HandleGrammar)
@@ -58,13 +59,14 @@ func main() {
 	http.HandleFunc("/analyze-image", handlers.HandleAnalyzeImage)
 	http.HandleFunc("/logout", auth.LogoutHandler)
 
-
 	// Google OAuth routes.
 	http.HandleFunc("/auth/google", auth.HandleGoogleLogin)
 	http.HandleFunc("/auth/google/callback", auth.HandleGoogleCallback)
 
 	// Serve static assets.
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
+	
 
 	port := os.Getenv("PORT")
 	if port == "" {

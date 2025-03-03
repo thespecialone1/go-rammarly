@@ -39,16 +39,12 @@ func HandleGenerate(w http.ResponseWriter, r *http.Request) {
 	// Return a partial if this is an HTMX request.
 	if r.Header.Get("HX-Request") != "" {
 		partial := `
-        {{if .CorrectedText}}
-        <div id="grammar-result" class="skeleton animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
-            <div class="flex justify-between items-center">
-                <h3 class="text-lg font-medium text-gray-800 mb-3">Corrected Text:</h3>
-                <button id="copy-btn" class="ripple text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded" onclick="copyResult()">Copy</button>
-            </div>
-            <div id="formatted-response" class="text-gray-700 leading-relaxed">{{.CorrectedText}}</div>
-        </div>
-        {{end}}
-        `
+		{{if .CorrectedText}}
+		<div id="grammar-result" class="output mt-4">
+			<div class="result-text" style="color:#333;">{{.CorrectedText}}}</div>
+		</div>
+		{{end}}
+		`	
 		t, err := template.New("partial").Parse(partial)
 		if err != nil {
 			log.Printf("Error parsing partial template: %v", err)

@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>go-rammarly</title>
+  <!-- Google Fonts: Lato -->
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind & HTMX -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+  <style>
+    :root {
+      --primary-bg: #02343F;
+      --text-color: #F0EDCC;
+      --input-bg: rgba(240, 237, 204, 0.1);
+      --hover-color: #e6e3be;
+      --success-color: #4CAF50;
+    }
+
+    /* Base Styles */
+    body {
+      font-family: 'Lato', sans-serif;
+      background-color: var(--primary-bg);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Animated Background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, rgba(2, 52, 63, 0.8), rgba(2, 52, 63, 0.9), rgba(2, 52, 63, 0.8));
+      background-size: 200% 200%;
+      animation: gradientBG 15s ease infinite;
+      z-index: -1;
+    }
+
+    @keyframes gradientBG {
+      0% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    /* Particles */
+    .particle {
+      position: fixed;
+      background: rgba(240, 237, 204, 0.1);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translate(0, 0);
+      }
+
+      50% {
+        transform: translate(5px, -10px);
+      }
+    }
+
+    /* Form Elements */
+    textarea,
+    input[type="text"] {
+      background-color: var(--input-bg) !important;
+      color: var(--text-color) !important;
+      border: 1px solid rgba(240, 237, 204, 0.2);
+      transition: all 0.3s ease;
+      resize: vertical;
+    }
+
+    textarea:focus,
+    input[type="text"]:focus {
+      border-color: var(--text-color);
+      box-shadow: 0 0 0 2px rgba(240, 237, 204, 0.2);
+      background-color: rgba(240, 237, 204, 0.15) !important;
+      outline: none;
+    }
+
+    /* Button Styles */
+    .light-btn {
+      background-color: var(--text-color);
+      color: var(--primary-bg);
+      transition: all 0.3s ease;
+    }
+
+    .light-btn:hover:not(:disabled) {
+      background-color: var(--hover-color);
+      transform: translateY(-1px);
+    }
+
+    .light-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Containers */
+    .column-bg {
+      background-color: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(240, 237, 204, 0.2);
+      backdrop-filter: blur(5px);
+    }
+
+    .content-panel {
+      height: 300px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--text-color) transparent;
+      position: relative;
+    }
+
+    .content-panel::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .content-panel::-webkit-scrollbar-thumb {
+      background-color: rgba(240, 237, 204, 0.3);
+      border-radius: 3px;
+    }
+
+    /* Subtle Fade-In for Responses */
+    .message-in {
+      opacity: 0;
+      animation: fadeIn 0.5s forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* Markdown-style Code Block for Response */
+    .response-block {
+      font-weight: bold;
+      white-space: pre-wrap;
+      padding: 1rem;
+      padding-right: 3rem;
+      /* extra space on the right for the button */
+      background: rgba(0, 0, 0, 0.6);
+      color: #F0EDCC;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    /* Copy Button */
+    .copy-btn {
+      background: rgba(240, 237, 204, 0.15);
+      border: 1px solid rgba(240, 237, 204, 0.3);
+      border-radius: 4px;
+      padding: 0.25rem 0.5rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .copy-btn:hover {
+      background: rgba(240, 237, 204, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .copy-btn:active {
+      transform: scale(0.95);
+    }
+
+    .copy-btn.copied {
+      background-color: rgba(76, 175, 80, 0.25);
+      border-color: rgba(76, 175, 80, 0.5);
+    }
+
+    /* Position copy button at top-right of response block */
+    .response-wrapper {
+      position: relative;
+    }
+
+    .response-wrapper .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+    }
+
+    /* Service Selection (Subtle effects) */
+    .service-selector {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .service-option {
+      cursor: pointer;
+      padding: 1rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      transition: transform 0.3s, box-shadow 0.3s, border 0.3s;
+      flex: 1;
+      text-align: center;
+    }
+
+    .service-option:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 8px rgba(240, 237, 204, 0.5);
+    }
+
+    .service-option.selected {
+      border: 2px solid var(--text-color);
+    }
+
+    /* Service Container Animation */
+    .service-container {
+      opacity: 0;
+      height: 0;
+      transform: translateY(-10px);
+      overflow: hidden;
+      transition: all 0.4s ease;
+    }
+
+    .service-container.active {
+      opacity: 1;
+      height: auto;
+      transform: translateY(0);
+      overflow: visible;
+    }
+
+    /* Response Container */
+    .response-container {
+      min-height: 150px;
+    }
+
+    /* Recent Activity Sidebar */
+    .recent-sidebar {
+      position: fixed;
+      left: -280px;
+      top: 0;
+      height: 100vh;
+      width: 280px;
+      background-color: rgba(2, 52, 63, 0.95);
+      border-right: 1px solid rgba(240, 237, 204, 0.2);
+      transition: left 0.4s ease;
+      z-index: 50;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+
+    .recent-sidebar.visible {
+      left: 0;
+    }
+
+    .recent-sidebar-toggle {
+      position: fixed;
+      left: 1rem;
+      bottom: 1rem;
+      z-index: 51;
+      transition: left 0.4s ease;
+    }
+
+    .recent-sidebar.visible~.recent-sidebar-toggle {
+      left: 280px;
+    }
+
+    .recent-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(240, 237, 204, 0.2);
+      cursor: pointer;
+    }
+
+    .recent-list li:hover {
+      background-color: rgba(240, 237, 204, 0.1);
+    }
+
+    /* Blinking live dot */
+    .live-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: red;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      animation: blink 1s linear infinite;
+    }
+
+    @keyframes blink {
+
+      0%,
+      50%,
+      100% {
+        opacity: 1;
+      }
+
+      25%,
+      75% {
+        opacity: 0;
+      }
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background-color: rgba(76, 175, 80, 0.9);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(1rem);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(240, 237, 204, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--text-color);
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    .spinner.active {
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .service-selector {
+        flex-direction: column;
+      }
+
+      header nav>div {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .recent-sidebar {
+        width: 100%;
+        left: -100%;
+      }
+
+      .recent-sidebar.visible~.recent-sidebar-toggle {
+        left: calc(100% - 3rem);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Particle Background -->
+  <div id="particles"></div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+    <span id="toast-message">Text copied to clipboard!</span>
+  </div>
+
+  <!-- Recent Activity Sidebar -->
+  <aside id="recent-sidebar" class="recent-sidebar">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-semibold">Recent Activity</h2>
+      <button onclick="toggleRecentSidebar()" class="p-2 rounded-full hover:bg-[rgba(240,237,204,0.1)]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="mb-4">
+      <div class="flex border-b border-[rgba(240,237,204,0.2)]">
+        <button id="btn-recent-texts" class="py-2 px-4 font-medium border-b-2 border-transparent transition-all"
+          onclick="showRecent('text')">Texts</button>
+        <button id="btn-recent-images" class="py-2 px-4 font-medium border-b-2 border-transparent transition-all"
+          onclick="showRecent('image')">Images</button>
+      </div>
+    </div>
+    <div id="recent-texts" class="recent-section"></div>
+    <div id="recent-images" class="recent-section hidden"></div>
+  </aside>
+
+  <button id="sidebar-toggle" class="recent-sidebar-toggle p-2 rounded-full bg-[rgba(240,237,204,0.9)] text-[#02343F]"
+    onclick="toggleRecentSidebar()">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </button>
+
+  <!-- Header -->
+  <header class="w-full max-w-7xl px-4 mt-6 mb-4 flex flex-col md:flex-row items-center justify-between z-10">
+    <h1 class="text-3xl font-bold hover:scale-105 transition-transform duration-300">go-rammarly</h1>
+    <nav>
+      {{if .User}}
+      <div class="flex items-center gap-4">
+        <a href="/live"
+          class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg flex items-center">
+          <span class="live-dot"></span>Live Activity
+        </a>
+        <a href="/logout" class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">Logout</a>
+        <div class="flex items-center gap-2">
+          <img src="{{.User.Picture}}" alt="Profile Picture"
+            class="w-8 h-8 rounded-full ring-2 ring-[#F0EDCC] transition-transform hover:scale-110 border border-transparent">
+          <span class="font-medium">{{.User.Name}}</span>
+        </div>
+      </div>
+      {{else}}
+      <a href="/auth/google"
+        class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg hover:scale-105">Log In</a>
+      {{end}}
+    </nav>
+  </header>
+
+  <main class="w-full max-w-7xl px-4 flex-1 z-10 flex flex-col items-center">
+    <!-- Service Selection -->
+    <section class="mb-8 w-full max-w-md">
+      <div class="service-selector">
+        <div class="service-option" id="option-grammar" onclick="selectService('grammar', this)">
+          <svg class="mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7V4h16v3"></path>
+            <path d="M9 20h6"></path>
+            <path d="M12 4v16"></path>
+          </svg>
+          <h3 class="text-lg font-medium">Grammar Check</h3>
+        </div>
+        <div class="service-option" id="option-image" onclick="selectService('image', this)">
+          <svg class="mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <h3 class="text-lg font-medium">Image Analysis</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grammar Check Service -->
+    <section id="service-grammar" class="service-container w-full max-w-2xl mb-12">
+      <div class="rounded-lg p-4 column-bg mb-6">
+        <form id="grammar-form" hx-post="/generate" hx-target="#response-container" hx-swap="innerHTML"
+          class="flex flex-col gap-3">
+          <textarea id="grammar-input" name="text" rows="5" class="w-full px-3 py-2 rounded"
+            placeholder="Enter your text to check grammar..." required></textarea>
+          <div class="flex items-center justify-end gap-3">
+            <div class="spinner" id="grammar-spinner"></div>
+            <button type="submit"
+              class="px-5 py-2 font-medium rounded light-btn transition-all duration-300 hover:shadow-lg" disabled>
+              Check Grammar
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Image Analysis Service -->
+    <section id="service-image" class="service-container w-full max-w-2xl mb-12">
+      <div class="rounded-lg p-4 column-bg mb-6">
+        <form id="image-form" hx-post="/analyze-image" hx-target="#response-container" hx-swap="innerHTML"
+          enctype="multipart/form-data" class="flex flex-col gap-3">
+          <div id="image-preview-container" class="relative hidden mb-4">
+            <img id="image-preview" class="w-full max-h-64 object-contain rounded" alt="Upload Preview">
+            <button type="button" onclick="clearImageUpload()"
+              class="absolute top-2 right-2 p-1 bg-[rgba(2,52,63,0.8)] rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <label for="image-input"
+            class="block w-full text-center px-4 py-6 rounded light-btn cursor-pointer transition-all duration-300 hover:shadow-lg">
+            <svg class="mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Upload Image
+          </label>
+          <input type="file" id="image-input" name="image" accept="image/*" class="hidden"
+            onchange="handleImageUpload(this)">
+          <div class="flex items-center justify-end gap-3">
+            <div class="spinner" id="image-spinner"></div>
+            <button type="submit" id="analyze-button"
+              class="px-5 py-2 font-medium rounded light-btn transition-all duration-300 hover:shadow-lg" disabled>
+              Analyze Image
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Response Container -->
+    <section id="response-section" class="w-full max-w-2xl mb-12 hidden">
+      <div class="rounded-lg p-4 column-bg mb-6">
+        <div id="response-container" class="response-container">
+          <!-- API response will appear here -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="w-full max-w-7xl px-4 py-6 text-center text-sm z-10">
+    <p>&copy; 2025 go-rammarly. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Create subtle floating particles
+    function createParticles() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 20; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.width = Math.random() * 5 + 'px';
+        particle.style.height = particle.style.width;
+        particle.style.left = Math.random() * 100 + 'vw';
+        particle.style.top = Math.random() * 100 + 'vh';
+        particle.style.animation = `float ${5 + Math.random() * 5}s ease-in-out infinite`;
+        container.appendChild(particle);
+      }
+    }
+
+    let recentPages = { text: 1, image: 1 };
+    let currentService = null;
+
+    // Show toast notification
+    function showToast(message, duration = 3000) {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toast-message');
+
+      toastMessage.textContent = message;
+      toast.classList.add('show');
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, duration);
+    }
+
+    // Handle copy functionality with improved feedback
+    function copyToClipboard(text, button) {
+      navigator.clipboard.writeText(text).then(() => {
+        // Update button state
+        button.classList.add('copied');
+
+        // Change button text and icon
+        button.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"></path>
+          </svg>
+          <span>Copied!</span>`;
+
+        // Show toast notification
+        showToast('Text copied to clipboard!');
+
+        // Reset button after delay
+        setTimeout(() => {
+          button.classList.remove('copied');
+          button.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Copy</span>`;
+        }, 2000);
+      }).catch(err => {
+        console.error('Could not copy text: ', err);
+        showToast('Failed to copy text', 3000);
+      });
+    }
+
+    // Subtle service selection: add a border to the selected option.
+    function selectService(service, element) {
+      document.querySelectorAll('.service-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      element.classList.add('selected');
+
+      document.querySelectorAll('.service-container').forEach(container => {
+        container.classList.remove('active');
+      });
+      const selectedContainer = document.getElementById(`service-${service}`);
+      if (selectedContainer) { selectedContainer.classList.add('active'); }
+      document.getElementById('response-section').classList.add('hidden');
+      currentService = service;
+    }
+
+    function toggleRecentSidebar() {
+      document.getElementById('recent-sidebar').classList.toggle('visible');
+    }
+
+    const grammarInput = document.getElementById('grammar-input');
+    const grammarForm = document.getElementById('grammar-form');
+    const grammarSubmitBtn = grammarForm.querySelector('button[type="submit"]');
+    const grammarSpinner = document.getElementById('grammar-spinner');
+
+    grammarInput.addEventListener('input', () => {
+      grammarSubmitBtn.disabled = !grammarInput.value.trim();
+    });
+
+    function handleImageUpload(input) {
+      if (input.files.length) {
+        const file = input.files[0];
+        // Validate file type and size
+        if (!file.type.match('image.*')) {
+          showToast('Please select an image file', 3000);
+          clearImageUpload();
+          return;
+        }
+
+        // Max file size: 5MB
+        if (file.size > 5 * 1024 * 1024) {
+          showToast('Image size should be less than 5MB', 3000);
+          clearImageUpload();
+          return;
+        }
+
+        const imageURL = URL.createObjectURL(file);
+        const preview = document.getElementById('image-preview');
+        const previewContainer = document.getElementById('image-preview-container');
+        preview.src = imageURL;
+        previewContainer.classList.remove('hidden');
+        document.getElementById('analyze-button').disabled = false;
+        storeRecentActivity('image', imageURL);
+      }
+    }
+
+    function clearImageUpload() {
+      document.getElementById('image-input').value = '';
+      document.getElementById('image-preview-container').classList.add('hidden');
+      document.getElementById('analyze-button').disabled = true;
+    }
+
+    // Enhanced process response function
+    function processNewResponse(node) {
+      if (!node || node.nodeType !== 1) return;
+
+      let fullText = node.textContent.trim();
+      // Cleanup text formatting if needed
+      if (fullText.toLowerCase().startsWith("corrected text:")) {
+        fullText = fullText.substring("corrected text:".length).trim();
+      }
+
+      // Create a wrapper to position the copy button
+      const wrapper = document.createElement('div');
+      wrapper.className = 'relative message-in response-wrapper';
+
+      // Create a pre/code block for markdown styling
+      const preBlock = document.createElement('pre');
+      preBlock.className = 'response-block';
+      preBlock.style.overflowX = 'auto';
+      const codeBlock = document.createElement('code');
+      codeBlock.className = 'language-md';
+      codeBlock.innerText = fullText;
+      preBlock.appendChild(codeBlock);
+      wrapper.appendChild(preBlock);
+
+      // Create the enhanced copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.setAttribute('aria-label', 'Copy to clipboard');
+      copyBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>Copy</span>`;
+
+      // Improved click handler with enhanced feedback
+      copyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        copyToClipboard(codeBlock.textContent, copyBtn);
+      });
+
+      // Add keyboard accessibility
+      copyBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          copyToClipboard(codeBlock.textContent, copyBtn);
+        }
+      });
+
+      // Make the button focusable for keyboard navigation
+      copyBtn.setAttribute('tabindex', '0');
+
+      wrapper.appendChild(copyBtn);
+
+      // Replace the original node with our enhanced version
+      node.parentNode.replaceChild(wrapper, node);
+
+      // Add copy on double-click for the entire response block
+      preBlock.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        copyToClipboard(codeBlock.textContent, copyBtn);
+      });
+    }
+
+    document.body.addEventListener('htmx:afterRequest', (event) => {
+      const form = event.detail.elt;
+      const spinner = form.querySelector('.spinner');
+      const submitBtn = form.querySelector('button[type="submit"]');
+
+      if (spinner) spinner.classList.remove('active');
+      if (submitBtn) submitBtn.disabled = false;
+
+      // Handle request errors
+      if (event.detail.successful) {
+        document.getElementById('response-section').classList.remove('hidden');
+
+        // Process the newly added response for styling and copy functionality
+        const responseContainer = document.getElementById('response-container');
+        processNewResponse(responseContainer.firstElementChild);
+      } else {
+        showToast('Request failed. Please try again.', 4000);
+      }
+    });
+
+    // Store recent activity in local storage
+    function storeRecentActivity(type, content) {
+      try {
+        let recentActivities = localStorage.getItem(`recent-${type}`) ?
+          JSON.parse(localStorage.getItem(`recent-${type}`)) : [];
+
+        // Create new activity with timestamp
+        const newActivity = {
+          id: Date.now(),
+          content: content,
+          timestamp: new Date().toISOString()
+        };
+
+        // Add to beginning of array and limit to 10 items
+        recentActivities.unshift(newActivity);
+        if (recentActivities.length > 10) {
+          recentActivities = recentActivities.slice(0, 10);
+        }
+
+        localStorage.setItem(`recent-${type}`, JSON.stringify(recentActivities));
+
+        // Update sidebar if it's the current view
+        updateRecentSidebar(type);
+      } catch (e) {
+        console.error('Error storing recent activity:', e);
+      }
+    }
+
+    // Load and display recent activities in sidebar
+    function loadRecentActivities() {
+      showRecent('text'); // Default to text tab
+    }
+
+    function showRecent(type) {
+      // Update tab selection styling
+      document.querySelectorAll('[id^="btn-recent-"]').forEach(btn => {
+        btn.classList.remove('border-[#F0EDCC]', 'text-[#F0EDCC]');
+        btn.classList.add('border-transparent', 'text-[rgba(240,237,204,0.7)]');
+      });
+      document.getElementById(`btn-recent-${type}s`).classList.remove('border-transparent', 'text-[rgba(240,237,204,0.7)]');
+      document.getElementById(`btn-recent-${type}s`).classList.add('border-[#F0EDCC]', 'text-[#F0EDCC]');
+
+      // Hide all sections and show the selected one
+      document.querySelectorAll('.recent-section').forEach(section => {
+        section.classList.add('hidden');
+      });
+      document.getElementById(`recent-${type}s`).classList.remove('hidden');
+
+      updateRecentSidebar(type);
+    }
+
+    function updateRecentSidebar(type) {
+      try {
+        const container = document.getElementById(`recent-${type}s`);
+        const recentItems = localStorage.getItem(`recent-${type}`) ?
+          JSON.parse(localStorage.getItem(`recent-${type}`)) : [];
+
+        if (recentItems.length === 0) {
+          container.innerHTML = `<p class="text-center py-4 text-[rgba(240,237,204,0.7)]">No recent ${type} activities</p>`;
+          return;
+        }
+
+        let html = '<ul class="recent-list">';
+
+        recentItems.forEach(item => {
+          const date = new Date(item.timestamp);
+          const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+          if (type === 'text') {
+            // For text, show preview
+            const preview = item.content.length > 30 ?
+              item.content.substring(0, 30) + '...' : item.content;
+
+            html += `
+          <li onclick="loadPreviousActivity('text', '${item.id}')" class="rounded hover:bg-[rgba(240,237,204,0.1)] p-2">
+            <div class="flex flex-col">
+              <span class="text-sm font-medium">${preview}</span>
+              <span class="text-xs text-[rgba(240,237,204,0.7)]">${formattedDate}</span>
+            </div>
+            <button onclick="event.stopPropagation(); deleteActivity('text', ${item.id})" class="p-1 rounded-full hover:bg-[rgba(240,237,204,0.2)]" aria-label="Delete">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+              </svg>
+            </button>
+          </li>
+        `;
+          } else if (type === 'image') {
+            // For images, show thumbnail
+            html += `
+          <li onclick="loadPreviousActivity('image', '${item.id}')" class="rounded hover:bg-[rgba(240,237,204,0.1)] p-2">
+            <div class="flex items-center gap-2">
+              <img src="${item.content}" class="w-12 h-12 object-cover rounded" alt="Thumbnail">
+              <span class="text-xs text-[rgba(240,237,204,0.7)]">${formattedDate}</span>
+            </div>
+            <button onclick="event.stopPropagation(); deleteActivity('image', ${item.id})" class="p-1 rounded-full hover:bg-[rgba(240,237,204,0.2)]" aria-label="Delete">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+              </svg>
+            </button>
+          </li>
+        `;
+          }
+        });
+
+        html += '</ul>';
+        container.innerHTML = html;
+      } catch (e) {
+        console.error('Error updating recent sidebar:', e);
+      }
+    }
+
+    function loadPreviousActivity(type, id) {
+      try {
+        const activities = JSON.parse(localStorage.getItem(`recent-${type}`));
+        const activity = activities.find(a => a.id.toString() === id.toString());
+
+        if (!activity) return;
+
+        // Select the appropriate service
+        const serviceOption = document.getElementById(`option-${type}`);
+        selectService(type, serviceOption);
+
+        if (type === 'text') {
+          document.getElementById('grammar-input').value = activity.content;
+          document.getElementById('grammar-form').querySelector('button[type="submit"]').disabled = false;
+        } else if (type === 'image') {
+          const preview = document.getElementById('image-preview');
+          const previewContainer = document.getElementById('image-preview-container');
+          preview.src = activity.content;
+          previewContainer.classList.remove('hidden');
+          document.getElementById('analyze-button').disabled = false;
+        }
+
+        // Close sidebar
+        toggleRecentSidebar();
+      } catch (e) {
+        console.error('Error loading previous activity:', e);
+      }
+    }
+
+    function deleteActivity(type, id) {
+      try {
+        const activities = JSON.parse(localStorage.getItem(`recent-${type}`));
+        const updatedActivities = activities.filter(a => a.id !== id);
+        localStorage.setItem(`recent-${type}`, JSON.stringify(updatedActivities));
+        updateRecentSidebar(type);
+      } catch (e) {
+        console.error('Error deleting activity:', e);
+      }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      createParticles();
+      loadRecentActivities();
+
+      // Select grammar service by default
+      const defaultOption = document.getElementById('option-grammar');
+      selectService('grammar', defaultOption);
+
+      // Add keyboard access to copy functionality
+      document.addEventListener('keydown', (e) => {
+        // Ctrl+Enter or Cmd+Enter to submit form
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          if (currentService === 'grammar' && !grammarSubmitBtn.disabled) {
+            grammarForm.requestSubmit();
+          } else if (currentService === 'image' && !document.getElementById('analyze-button').disabled) {
+            document.getElementById('image-form').requestSubmit();
+          }
+        }
+      });
+
+      // Add offline support notification
+      window.addEventListener('online', () => showToast('You are back online!', 3000));
+      window.addEventListener('offline', () => showToast('You are offline. Some features may be limited.', 5000));
+    });
+  </script>
+</body>
+
+</html>
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>go-rammarly</title>
+
+  <!-- Google Fonts: Inter (for readability) with Orbitron for headings -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS for rapid styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- HTMX for dynamic content -->
+  <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+  
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    :root {
+      --primary-bg: #0A0A1A;
+      --text-color: #E0E0E0;
+      --accent-color: #00FFFF;
+      --panel-bg: rgba(255, 255, 255, 0.05);
+      --hover-color: #00CED1;
+      --error-color: #FF4040;
+      --success-color: #40FF80;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--primary-bg);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    h1, h2, h3, .btn {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* Sidebar */
+    nav {
+      background: var(--panel-bg);
+      backdrop-filter: blur(10px);
+      position: fixed;
+      top: 0;
+      left: -100%;
+      width: 250px;
+      height: 100%;
+      transition: left 0.3s ease;
+      z-index: 20;
+      border-right: 1px solid rgba(0, 255, 255, 0.1);
+    }
+    nav.active {
+      left: 0;
+    }
+
+    /* Main Content */
+    main {
+      flex: 1;
+      padding: 2rem;
+      transition: opacity 0.3s ease;
+    }
+    .section {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .section.active {
+      display: block;
+      opacity: 1;
+    }
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      top: 0;
+      right: -100%;
+      width: 350px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(10px);
+      transition: right 0.3s ease;
+      z-index: 30;
+      border-left: 1px solid rgba(0, 255, 255, 0.1);
+    }
+    .modal.active {
+      right: 0;
+    }
+
+    /* Buttons */
+    .btn {
+      background: var(--accent-color);
+      color: #000;
+      padding: 0.6rem 1.2rem;
+      border-radius: 5px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn:hover {
+      background: var(--hover-color);
+      box-shadow: 0 0 15px var(--accent-color);
+      transform: translateY(-2px);
+    }
+    .btn:active {
+      transform: translateY(0);
+    }
+    .btn::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 5px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.5);
+      opacity: 0;
+      border-radius: 100%;
+      transform: scale(1, 1) translate(-50%);
+      transform-origin: 50% 50%;
+    }
+    .btn:active::after {
+      animation: ripple 0.4s ease-out;
+    }
+    .btn-outline {
+      background: transparent;
+      color: var(--accent-color);
+      border: 1px solid var(--accent-color);
+    }
+    .btn-outline:hover {
+      background: rgba(0, 255, 255, 0.1);
+    }
+    @keyframes ripple {
+      0% { transform: scale(0, 0); opacity: 0.5; }
+      100% { transform: scale(100, 100); opacity: 0; }
+    }
+
+    /* Form Elements */
+    textarea, input[type="file"] {
+      background: var(--panel-bg);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 5px;
+      color: var(--text-color);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    textarea:focus {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.2);
+      outline: none;
+    }
+
+    /* Results Container */
+    .results-container {
+      background: var(--panel-bg);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 5px;
+      min-height: 100px;
+      transition: all 0.3s ease;
+    }
+
+    /* Hamburger Menu */
+    #menu-toggle {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      z-index: 25;
+      color: var(--accent-color);
+      background: rgba(10, 10, 26, 0.8);
+      border-radius: 5px;
+      padding: 0.5rem;
+      backdrop-filter: blur(5px);
+    }
+
+    /* User Profile */
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+    }
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #000;
+    }
+
+    /* Loading Animation */
+    .loading-indicator {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .loading-indicator.htmx-request {
+      display: flex;
+    }
+    .loading-brain {
+      width: 40px;
+      height: 40px;
+      position: relative;
+    }
+    .loading-brain::before, .loading-brain::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 20px;
+      height: 40px;
+      border: 2px solid var(--accent-color);
+      border-radius: 20px 0 0 20px;
+      border-right: 0;
+      animation: pulse 1.5s infinite;
+    }
+    .loading-brain::after {
+      left: 20px;
+      border-radius: 0 20px 20px 0;
+      border-right: 2px solid var(--accent-color);
+      border-left: 0;
+      animation-delay: 0.75s;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+
+    /* Copy Button */
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 255, 255, 0.2);
+      color: var(--accent-color);
+      border: none;
+      border-radius: 3px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .copy-btn:hover {
+      background: rgba(0, 255, 255, 0.4);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      border-radius: 5px;
+      background: var(--panel-bg);
+      color: var(--text-color);
+      backdrop-filter: blur(10px);
+      border-left: 3px solid var(--accent-color);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      z-index: 100;
+    }
+    .toast.active {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Thinking Animation */
+    .thinking-dots {
+      display: inline-flex;
+      gap: 2px;
+    }
+    .thinking-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      animation: thinking 1.4s infinite;
+    }
+    .thinking-dots span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .thinking-dots span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    @keyframes thinking {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+
+    /* Responsive Design */
+    @media (min-width: 768px) {
+      nav {
+        left: 0;
+        width: 220px;
+      }
+      main {
+        margin-left: 220px;
+      }
+      #menu-toggle {
+        display: none;
+      }
+    }
+
+    /* Accessibility */
+    a:focus, button:focus {
+      outline: 2px solid var(--accent-color);
+      outline-offset: 2px;
+    }
+
+    /* Nav Link Active State */
+    .nav-link {
+      position: relative;
+      transition: color 0.3s ease;
+    }
+    .nav-link.active {
+      color: var(--accent-color);
+    }
+    .nav-link.active::before {
+      content: '';
+      position: absolute;
+      left: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 5px;
+      height: 5px;
+      background: var(--accent-color);
+      border-radius: 50%;
+    }
+    .nav-link:hover {
+      color: var(--accent-color);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <span id="toast-message"></span>
+  </div>
+
+  <!-- Hamburger Menu for Mobile -->
+  <button id="menu-toggle" class="md:hidden p-2 text-2xl" aria-label="Toggle menu">
+    <i class="fas fa-bars"></i>
+  </button>
+
+  <!-- Sidebar Navigation -->
+  <nav id="sidebar" class="p-4">
+    <h1 class="text-2xl font-bold mb-4 flex items-center gap-2">
+      <i class="fas fa-robot" style="color: var(--accent-color)"></i> 
+      go-rammarly
+    </h1>
+
+    <!-- User Profile -->
+    <div class="user-profile">
+      <div class="user-avatar">JD</div>
+      <div>
+        <div class="font-medium">John Doe</div>
+        <div class="text-xs opacity-70">Premium User</div>
+      </div>
+    </div>
+
+    <ul class="space-y-1">
+      <li>
+        <a href="#" data-section="home" class="nav-link active block py-2 px-3 rounded hover:bg-[rgba(0,255,255,0.1)]">
+          <i class="fas fa-home w-5"></i> Home
+        </a>
+      </li>
+      <li>
+        <a href="#" data-section="text-analysis" class="nav-link block py-2 px-3 rounded hover:bg-[rgba(0,255,255,0.1)]">
+          <i class="fas fa-font w-5"></i> Text Analysis
+        </a>
+      </li>
+      <li>
+        <a href="#" data-section="image-analysis" class="nav-link block py-2 px-3 rounded hover:bg-[rgba(0,255,255,0.1)]">
+          <i class="fas fa-image w-5"></i> Image Analysis
+        </a>
+      </li>
+      <li class="mt-8">
+        <a href="#" id="logout-btn" class="nav-link block py-2 px-3 rounded hover:bg-[rgba(255,0,0,0.1)] hover:text-red-400">
+          <i class="fas fa-sign-out-alt w-5"></i> Logout
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Home Section -->
+    <section id="home" class="section active">
+      <h2 class="text-3xl font-bold mb-6 flex items-center gap-2">
+        <i class="fas fa-robot" style="color: var(--accent-color)"></i> 
+        Welcome to go-rammarly
+      </h2>
+      
+      <div class="bg-[var(--panel-bg)] p-6 rounded-lg mb-8 border border-[rgba(0,255,255,0.1)]">
+        <p class="mb-4">A powerful toolset for text and image analysis. Select an option below to begin.</p>
+        <div class="flex flex-wrap gap-4">
+          <button onclick="switchSection('text-analysis')" class="btn">
+            <i class="fas fa-font"></i> Text Analysis
+          </button>
+          <button onclick="switchSection('image-analysis')" class="btn">
+            <i class="fas fa-image"></i> Image Analysis
+          </button>
+        </div>
+      </div>
+      
+      <!-- Recent Activity Summary -->
+      <h3 class="text-xl font-bold mb-4">Recent Activity</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-[var(--panel-bg)] p-4 rounded-lg border border-[rgba(0,255,255,0.1)]">
+          <h4 class="font-bold flex items-center gap-2 mb-3">
+            <i class="fas fa-font" style="color: var(--accent-color)"></i> Recent Texts
+          </h4>
+          <div id="home-recent-texts" class="space-y-2 max-h-40 overflow-y-auto">
+            <p class="text-sm opacity-70">No recent text analyses</p>
+          </div>
+          <button onclick="switchSection('text-analysis')" class="btn-outline btn mt-3 text-sm">
+            <i class="fas fa-plus"></i> New Analysis
+          </button>
+        </div>
+        
+        <div class="bg-[var(--panel-bg)] p-4 rounded-lg border border-[rgba(0,255,255,0.1)]">
+          <h4 class="font-bold flex items-center gap-2 mb-3">
+            <i class="fas fa-image" style="color: var(--accent-color)"></i> Recent Images
+          </h4>
+          <div id="home-recent-images" class="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+            <p class="text-sm opacity-70 col-span-3">No recent image analyses</p>
+          </div>
+          <button onclick="switchSection('image-analysis')" class="btn-outline btn mt-3 text-sm">
+            <i class="fas fa-plus"></i> New Analysis
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Text Analysis Section -->
+    <section id="text-analysis" class="section">
+      <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+        <i class="fas fa-font" style="color: var(--accent-color)"></i> Text Analysis
+      </h2>
+      
+      <form id="text-form" hx-post="/generate" hx-target="#text-results" hx-swap="innerHTML" hx-indicator="#text-loading">
+        <textarea name="text" id="text-input" class="w-full p-4 bg-[var(--panel-bg)] border border-[rgba(0,255,255,0.3)] rounded-lg resize-y" placeholder="Enter text for analysis..." rows="5"></textarea>
+        
+        <div class="flex items-center justify-between mt-4">
+          <button type="submit" class="btn">
+            <i class="fas fa-check-circle"></i> Analyze Text
+          </button>
+          <button type="button" onclick="showRecent('text')" class="btn-outline btn">
+            <i class="fas fa-history"></i> Recent Texts
+          </button>
+        </div>
+      </form>
+      
+      <!-- Loading Indicator -->
+      <div id="text-loading" class="loading-indicator">
+        <div class="loading-brain"></div>
+        <div class="flex items-center">
+          Bot is thinking
+          <div class="thinking-dots ml-2">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Results Container -->
+      <div class="mt-6">
+        <div id="text-results-container" class="results-container relative p-4 hidden">
+          <button class="copy-btn" onclick="copyResults('text-results')">
+            <i class="fas fa-copy"></i> Copy
+          </button>
+          <div id="text-results"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Image Analysis Section -->
+    <section id="image-analysis" class="section">
+      <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+        <i class="fas fa-image" style="color: var(--accent-color)"></i> Image Analysis
+      </h2>
+      
+      <form id="image-form" hx-post="/analyze-image" hx-target="#image-results" hx-swap="innerHTML" enctype="multipart/form-data" hx-indicator="#image-loading">
+        <div class="border-2 border-dashed border-[rgba(0,255,255,0.3)] rounded-lg p-8 text-center" id="drop-zone">
+          <input type="file" name="image" accept="image/*" class="hidden" id="image-input" onchange="previewImage(this)" />
+          <div id="image-preview" class="mb-4 flex justify-center">
+            <i class="fas fa-cloud-upload-alt text-5xl" style="color: var(--accent-color); opacity: 0.5;"></i>
+          </div>
+          <label for="image-input" class="btn cursor-pointer inline-block mb-2">
+            <i class="fas fa-upload"></i> Upload Image
+          </label>
+          <p class="text-sm opacity-70">or drag and drop your image here</p>
+        </div>
+        
+        <div class="flex items-center justify-between mt-4">
+          <button type="submit" id="analyze-image-btn" class="btn opacity-50 pointer-events-none" disabled>
+            <i class="fas fa-check-circle"></i> Analyze Image
+          </button>
+          <button type="button" onclick="showRecent('image')" class="btn-outline btn">
+            <i class="fas fa-history"></i> Recent Images
+          </button>
+        </div>
+      </form>
+      
+      <!-- Loading Indicator -->
+      <div id="image-loading" class="loading-indicator">
+        <div class="loading-brain"></div>
+        <div class="flex items-center">
+          Processing your image
+          <div class="thinking-dots ml-2">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Results Container -->
+      <div class="mt-6">
+        <div id="image-results-container" class="results-container relative p-4 hidden">
+          <button class="copy-btn" onclick="copyResults('image-results')">
+            <i class="fas fa-copy"></i> Copy
+          </button>
+          <div id="image-results"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Recent Activity Modal -->
+  <div id="recent-modal" class="modal p-6">
+    <div class="flex justify-between items-center mb-6">
+      <h2 id="modal-title" class="text-xl font-bold"></h2>
+      <button onclick="closeModal()" class="text-[var(--accent-color)] text-lg" aria-label="Close modal">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div id="modal-content" class="space-y-3 max-h-[80vh] overflow-y-auto"></div>
+    <button onclick="closeModal()" class="btn w-full mt-6">
+      <i class="fas fa-times-circle"></i> Close
+    </button>
+  </div>
+
+  <script>
+    // Sidebar Toggle for Mobile
+    document.getElementById('menu-toggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('active');
+    });
+
+    // Section Switching
+    document.querySelectorAll('nav a[data-section]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.querySelectorAll('.nav-link').forEach(navLink => navLink.classList.remove('active'));
+        link.classList.add('active');
+        switchSection(link.getAttribute('data-section'));
+      });
+    });
+
+    function switchSection(sectionId) {
+      document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+      document.getElementById(sectionId).classList.add('active');
+      document.querySelectorAll('.nav-link').forEach(link => {
+        if (link.getAttribute('data-section') === sectionId) {
+          link.classList.add('active');
+        } else {
+          link.classList.remove('active');
+        }
+      });
+      if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('active');
+    }
+
+    // Logout functionality
+    document.getElementById('logout-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      showToast('Logging out...', 'success');
+      setTimeout(() => window.location.href = '/logout', 1000);
+    });
+
+    // Toast Notification
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toast-message');
+      toastMessage.textContent = message;
+      toast.style.borderLeftColor = type === 'success' ? 'var(--success-color)' : type === 'error' ? 'var(--error-color)' : 'var(--accent-color)';
+      toast.classList.add('active');
+      setTimeout(() => toast.classList.remove('active'), 3000);
+    }
+
+    // Copy Results to Clipboard
+    function copyResults(elementId) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        const text = element.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('Results copied to clipboard', 'success');
+        }).catch(() => {
+          showToast('Failed to copy results', 'error');
+        });
+      }
+    }
+
+    // Preview Image
+    function previewImage(input) {
+      const file = input.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('image-preview').innerHTML = `<img src="${e.target.result}" class="max-h-64 object-contain rounded-lg" />`;
+          document.getElementById('analyze-image-btn').disabled = false;
+          document.getElementById('analyze-image-btn').classList.remove('opacity-50', 'pointer-events-none');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // HTMX Response Handling
+    document.getElementById('text-form').addEventListener('htmx:response', function(event) {
+      if (event.detail.successful) {
+        document.getElementById('text-results-container').classList.remove('hidden');
+        storeRecentText();
+      }
+    });
+
+    document.getElementById('image-form').addEventListener('htmx:response', function(event) {
+      if (event.detail.successful) {
+        document.getElementById('image-results-container').classList.remove('hidden');
+        storeRecentImage();
+      }
+    });
+
+    // HTMX Error Handling
+    document.body.addEventListener('htmx:responseError', (event) => {
+      showToast('An error occurred during processing', 'error');
+    });
+
+    // Recent Activity Modal functions
+    function showRecent(type) {
+      const modal = document.getElementById('recent-modal');
+      const title = document.getElementById('modal-title');
+      const content = document.getElementById('modal-content');
+      const items = getRecentItems(type);
+      title.innerHTML = `<i class="fas fa-${type === 'text' ? 'font' : 'image'}" style="color: var(--accent-color)"></i> Recent ${type.charAt(0).toUpperCase() + type.slice(1)}s`;
+      if (items.length === 0) {
+        content.innerHTML = `<p class="opacity-70">No recent ${type}s found.</p>`;
+      } else {
+        if (type === 'text') {
+          content.innerHTML = items.map((item, index) => `
+            <div class="p-3 bg-[var(--panel-bg)] rounded-lg border border-[rgba(0,255,255,0.1)] cursor-pointer hover:border-[var(--accent-color)] transition-colors" onclick="reuseItem('${type}', ${index})">
+              <p class="text-sm">${item.text.substring(0, 100)}${item.text.length > 100 ? '...' : ''}</p>
+              <div class="flex justify-between items-center mt-2 text-xs opacity-70">
+                <span>${item.date}</span>
+                <button class="text-[var(--accent-color)] hover:underline" onclick="removeItem(event, '${type}', ${index})">Remove</button>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          content.innerHTML = `<div class="grid grid-cols-2 gap-3">` + 
+            items.map((item, index) => `
+              <div class="bg-[var(--panel-bg)] rounded-lg border border-[rgba(0,255,255,0.1)] overflow-hidden cursor-pointer hover:border-[var(--accent-color)] transition-colors" onclick="reuseItem('${type}', ${index})">
+                <img src="${item.url}" class="w-full h-32 object-cover" alt="Recent image" />
+                <div class="p-2 text-xs">
+                  <div class="opacity-70">${item.date}</div>
+                  <button class="text-[var(--accent-color)] hover:underline mt-1" onclick="removeItem(event, '${type}', ${index})">Remove</button>
+                </div>
+              </div>
+            `).join('') + `</div>`;
+        }
+      }
+      modal.classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('recent-modal').classList.remove('active');
+    }
+
+    function removeItem(event, type, index) {
+      event.stopPropagation();
+      let items = JSON.parse(localStorage.getItem(`recent-${type}s`) || '[]');
+      items.splice(index, 1);
+      localStorage.setItem(`recent-${type}s`, JSON.stringify(items));
+      showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} removed from history`, 'success');
+      showRecent(type);
+      updateHomeRecentItems();
+    }
+
+    function reuseItem(type, index) {
+      const items = getRecentItems(type);
+      const item = items[index];
+      if (type === 'text') {
+        document.getElementById('text-input').value = item.text;
+        switchSection('text-analysis');
+      } else if (type === 'image') {
+        document.getElementById('image-preview').innerHTML = `<img src="${item.url}" class="max-h-64 object-contain rounded-lg" />`;
+        document.getElementById('analyze-image-btn').disabled = false;
+        document.getElementById('analyze-image-btn').classList.remove('opacity-50', 'pointer-events-none');
+        switchSection('image-analysis');
+      }
+      closeModal();
+    }
+
+    // Store Recent Text/Image in localStorage
+    function storeRecentText() {
+      const text = document.getElementById('text-input').value;
+      if (!text.trim()) return;
+      const newItem = {
+        text: text,
+        date: new Date().toLocaleString(),
+        result: document.getElementById('text-results').innerHTML
+      };
+      let texts = JSON.parse(localStorage.getItem('recent-texts') || '[]');
+      texts.unshift(newItem);
+      if (texts.length > 10) texts.pop();
+      localStorage.setItem('recent-texts', JSON.stringify(texts));
+      updateHomeRecentItems();
+    }
+
+    function storeRecentImage() {
+      const fileInput = document.getElementById('image-input');
+      if (fileInput.files.length) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const newItem = {
+            url: e.target.result,
+            date: new Date().toLocaleString(),
+            result: document.getElementById('image-results').innerHTML
+          };
+          let images = JSON.parse(localStorage.getItem('recent-images') || '[]');
+          images.unshift(newItem);
+          if (images.length > 10) images.pop();
+          localStorage.setItem('recent-images', JSON.stringify(images));
+          updateHomeRecentItems();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function getRecentItems(type) {
+      return JSON.parse(localStorage.getItem(`recent-${type}s`) || '[]');
+    }
+
+    function updateHomeRecentItems() {
+      const textsContainer = document.getElementById('home-recent-texts');
+      const imagesContainer = document.getElementById('home-recent-images');
+      const texts = getRecentItems('text');
+      const images = getRecentItems('image');
+      if (texts.length > 0) {
+        textsContainer.innerHTML = texts.slice(0, 3).map((item, index) => `
+          <div class="text-sm p-2 bg-[var(--panel-bg)] rounded border border-[rgba(0,255,255,0.1)] cursor-pointer hover:border-[var(--accent-color)]" onclick="reuseItem('text', ${index})">
+            ${item.text.substring(0, 50)}${item.text.length > 50 ? '...' : ''}
+          </div>
+        `).join('');
+      } else {
+        textsContainer.innerHTML = `<p class="text-sm opacity-70">No recent text analyses</p>`;
+      }
+      if (images.length > 0) {
+        imagesContainer.innerHTML = images.slice(0, 3).map((item, index) => `
+          <div class="cursor-pointer" onclick="reuseItem('image', ${index})">
+            <img src="${item.url}" class="w-full h-20 object-cover rounded" alt="Recent image" />
+          </div>
+        `).join('');
+      } else {
+        imagesContainer.innerHTML = `<p class="text-sm opacity-70 col-span-3">No recent image analyses</p>`;
+      }
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('recent-modal').addEventListener('click', function(event) {
+      if (event.target === this) {
+        closeModal();
+      }
+    });
+
+    // Initialize home recent items
+    updateHomeRecentItems();
+  </script>
+</body>
+</html>
+
+

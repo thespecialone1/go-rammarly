@@ -59,13 +59,12 @@ func HandleAnalyzeImage(w http.ResponseWriter, r *http.Request) {
 	// Return a partial if HTMX header is set.
 	if r.Header.Get("HX-Request") != "" {
 		partial := `
-        {{if .ImageAnalysis}}
-        <div id="image-result" class="skeleton animate-fade-in mt-6 p-5 bg-orange-50/50 rounded-lg border border-orange-100">
-            <h3 class="text-lg font-medium text-gray-800 mb-3">Image Analysis:</h3>
-            <div class="text-gray-700 leading-relaxed">{{.ImageAnalysis}}</div>
-        </div>
-        {{end}}
-        `
+		{{if .ImageAnalysis}}
+		<div id="image-result" class="output mt-4">
+			<div class="result-text" style="color:#333;">{{.ImageAnalysis}}</div>
+		</div>
+		{{end}}
+		`
 		t, err := template.New("partial").Parse(partial)
 		if err != nil {
 			log.Printf("Error parsing partial template: %v", err)

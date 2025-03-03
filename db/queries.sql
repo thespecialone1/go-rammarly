@@ -8,3 +8,7 @@ SELECT id, google_id, email, name, picture, created_at
 FROM users
 WHERE google_id = ?
 LIMIT 1;
+
+-- name: CreateActivity :exec
+INSERT INTO activities (user_id, type, sender, content)
+VALUES (?, ?, ?, ?);

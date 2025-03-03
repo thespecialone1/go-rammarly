@@ -9,45 +9,47 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Environment types
-const (
-	EnvLocal      = "local"
-	EnvRender     = "render"
-	EnvProduction = "production"
-)
-
-// LoadEnv loads the appropriate environment configuration
+// LoadEnv loads environment variables from the appropriate .env file
 func LoadEnv() error {
-	// Check if we're running on Render.com
-	if os.Getenv("RENDER") != "" {
-		log.Println("Running on Render.com, using environment variables")
-		return nil // Use existing env vars
+	// Try loading environment-specific .env files
+	envs := []string{
+		".env." + strings.ToLower(os.Getenv("ENVIRONMENT")), // .env.production, .env.render, etc.
+		".env.local",                                         // Default local env
+		".env",                                               // Fallback to .env
 	}
 
-	// Check if we're running in production (DuckDNS)
-	if os.Getenv("PRODUCTION") != "" {
-		log.Println("Running in production, using environment variables")
-		return nil // Use existing env vars
+	var loaded bool
+	for _, env := range envs {
+		if err := godotenv.Load(env); err == nil {
+			log.Printf("Loaded environment from %s", env)
+			loaded = true
+			break
+		}
 	}
 
-	// Default to local environment if not specified
-	envFile := ".env.local"
-
-	// Check if environment is explicitly set
-	switch strings.ToLower(os.Getenv("GO_ENV")) {
-	case EnvLocal:
-		envFile = ".env.local"
-	case EnvRender:
-		envFile = ".env.render"
-	case EnvProduction:
-		envFile = ".env.production"
+	if !loaded {
+		log.Println("No .env file loaded, using system environment variables")
 	}
 
-	// Load the environment file
-	if err := godotenv.Load(envFile); err != nil {
-		return fmt.Errorf("error loading %s file: %w", envFile, err)
-	}
+	// Verify critical environment variables
+	checkEnvVar("GOOGLE_CLIENT_ID")
+	checkEnvVar("GOOGLE_CLIENT_SECRET")
+	checkEnvVar("SESSION_SECRET_KEY")
 
-	log.Printf("Loaded environment from %s", envFile)
 	return nil
+}
+
+// checkEnvVar verifies if an important environment variable is set
+func checkEnvVar(name string) {
+	if value := os.Getenv(name); value == "" {
+		log.Printf("WARNING: Environment variable %s is not set", name)
+	} else {
+		// For sensitive variables, just log that they are set
+		if strings.Contains(strings.ToLower(name), "secret") {
+			masked := fmt.Sprintf("%s is set", name)
+			log.Println(masked)
+		} else {
+			log.Printf("%s = %s", name, value)
+		}
+	}
 }

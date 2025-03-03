@@ -5,139 +5,104 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>go-rammarly</title>
 
-  <!-- Google Fonts: Lato -->
-  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   
   <!-- Tailwind & HTMX -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.2"></script>
 
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            background: '#FDF7F7',
+            primary: '#000000',
+            secondary: '#6C6C6C',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            // Remove the old shimmer & pulse if not used.
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-out forwards',
+          },
+        },
+      },
+    }
+  </script>
+
   <style>
-    :root {
-      --primary-bg: #02343F;
-      --text-color: #F0EDCC;
-      --input-bg: rgba(240, 237, 204, 0.1);
-      --hover-color: #e6e3be;
-    }
-
-    /* Base Styles */
     body {
-      font-family: 'Lato', sans-serif;
-      background-color: var(--primary-bg);
-      color: var(--text-color);
-      min-height: 100vh;
+      background-color: #FDF7F7;
+    }
+
+    .skeleton-loader {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-      overflow-x: hidden;
+      gap: 8px;
     }
 
-    /* Animated Background */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(
-        45deg,
-        rgba(2, 52, 63, 0.8),
-        rgba(2, 52, 63, 0.9),
-        rgba(2, 52, 63, 0.8)
-      );
-      background-size: 200% 200%;
-      animation: gradientBG 15s ease infinite;
-      z-index: -1;
+    /* Updated typing indicator animation */
+    @keyframes typing {
+      0%, 60%, 100% {
+        opacity: 0.2;
+        transform: translateY(0);
+      }
+      30% {
+        opacity: 1;
+        transform: translateY(-5px);
+      }
     }
-
-    @keyframes gradientBG {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-
-    /* Particles */
-    .particle {
-      position: fixed;
-      background: rgba(240, 237, 204, 0.1);
+    .skeleton-dot {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      pointer-events: none;
-      z-index: 0;
+      background-color: #e2e2e2;
+      animation: typing 1.5s ease-in-out infinite;
+    }
+    .skeleton-dot:nth-child(1) {
+      animation-delay: 0s;
+    }
+    .skeleton-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .skeleton-dot:nth-child(3) {
+      animation-delay: 0.4s;
     }
 
-    @keyframes float {
-      0%, 100% { transform: translateY(0) translateX(0); }
-      50% { transform: translateY(-20px) translateX(10px); }
+    .upload-overlay {
+      transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
     }
 
-    /* Form Elements */
-    textarea {
-      background-color: var(--input-bg) !important;
-      color: var(--text-color) !important;
-      border: 1px solid rgba(240, 237, 204, 0.2);
-      transition: all 0.3s ease;
-      resize: vertical;
+    /* Messages fade-in transition */
+    .message {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    .message.show {
+      animation: fadeIn 0.5s ease-out forwards;
     }
 
-    textarea:focus {
-      border-color: var(--text-color);
-      box-shadow: 0 0 0 2px rgba(240, 237, 204, 0.2);
-      background-color: rgba(240, 237, 204, 0.15) !important;
-      outline: none;
+    .copy-button {
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
     }
 
-    /* Button Styles */
-    .light-btn {
-      background-color: var(--text-color);
-      color: var(--primary-bg);
-      transition: all 0.3s ease;
+    .response-container:hover .copy-button {
+      opacity: 1;
     }
 
-    .light-btn:hover:not(:disabled) {
-      background-color: var(--hover-color);
-      transform: translateY(-1px);
-    }
-
-    .light-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* Content Containers */
-    .column-bg {
-      background-color: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(240, 237, 204, 0.2);
-      backdrop-filter: blur(5px);
-    }
-
-    .content-panel {
-      height: 300px;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: var(--text-color) transparent;
-      position: relative;
-    }
-
-    .content-panel::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .content-panel::-webkit-scrollbar-thumb {
-      background-color: rgba(240, 237, 204, 0.3);
-      border-radius: 3px;
-    }
-
-    /* Message Animations */
-    .message-in {
-      animation: slideIn 0.3s ease-out forwards;
-    }
-
-    @keyframes slideIn {
+    @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: translateY(10px);
       }
       to {
         opacity: 1;
@@ -145,214 +110,111 @@
       }
     }
 
-    /* Loading Spinner */
-    .spinner {
-      border: 3px solid rgba(240, 237, 204, 0.3);
-      border-top: 3px solid var(--text-color);
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      animation: none;
-      display: none;
+    .markdown p {
+      margin-bottom: 0.75rem;
     }
 
-    .spinner.active {
-      display: block;
-      animation: spin 1s linear infinite;
+    .markdown ul, .markdown ol {
+      margin-left: 1.5rem;
+      margin-bottom: 0.75rem;
     }
 
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    .markdown ul {
+      list-style-type: disc;
     }
 
-    /* Recent Activity Panel */
-    .recent-activity {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.5s ease-out;
-    }
-    .recent-activity.visible {
-      max-height: 500px;
-    }
-    .recent-activity .toggle-buttons button {
-      margin-right: 0.5rem;
-    }
-    .recent-section {
-      display: none;
-    }
-    .recent-section.active {
-      display: block;
+    .markdown ol {
+      list-style-type: decimal;
     }
 
-    /* Copy Button Style */
-    .copy-btn {
-      background: transparent;
-      border: none;
-      cursor: pointer;
+    .markdown code {
+      font-family: monospace;
+      background-color: #f0f0f0;
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
     }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-      .grid-cols-12 {
-        grid-template-columns: 1fr !important;
-      }
-      
-      .col-span-3, .col-span-6 {
-        grid-column: span 1 / span 1 !important;
-      }
-
-      .content-panel {
-        height: 200px;
-      }
-      /* Stack header items on mobile */
-      header nav > div {
-        flex-direction: column;
-        align-items: flex-start;
-      }
+    
+    .custom-blur {
+      backdrop-filter: blur(8px); /* Adjust the px value for your desired effect */
+      -webkit-backdrop-filter: blur(8px);
     }
   </style>
 </head>
 
-<body>
-  <!-- Particle Container -->
-  <div id="particles"></div>
-
-  <!-- Header -->
-  <header class="w-full max-w-7xl px-4 mt-6 mb-4 flex flex-col md:flex-row items-center justify-between z-10">
-    <h1 class="text-3xl font-bold hover:scale-105 transition-transform duration-300">
-      go-rammarly
-    </h1>
-    <nav>
+<body class="min-h-screen flex flex-col">
+  <header class="w-full p-4 flex justify-between items-center fixed top-0 bg-background/80 custom-blur rounded-b-lg z-50">
+    <h1 class="text-xl font-semibold">go-rammarly</h1>
+    <div>
       {{if .User}}
         <div class="flex items-center gap-4">
-          <button onclick="toggleRecentActivity()" 
-                  class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">
-            Recent Activity
+          <button onclick="toggleHistory()" class="px-3 py-1.5 text-sm font-medium hover:bg-black/5 rounded-lg transition-colors">
+            History
           </button>
-          <a href="/logout" 
-             class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">
+          <a href="/logout" class="px-3 py-1.5 text-sm font-medium hover:bg-black/5 rounded-lg transition-colors">
             Logout
           </a>
-          <div class="flex items-center gap-2">
-            <img src="{{.User.Picture}}" 
-                 alt="Profile Picture" 
-                 class="w-8 h-8 rounded-full ring-2 ring-[#F0EDCC] transition-transform hover:scale-110 border border-transparent">
-            <span class="font-medium">{{.User.Name}}</span>
-          </div>
+          <img src="{{.User.Picture}}" alt="Profile" class="w-8 h-8 rounded-full">
         </div>
       {{else}}
-        <a href="/auth/google" 
-           class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg hover:scale-105">
-          Log In
+        <a href="/auth/google" class="px-4 py-2 bg-black text-white rounded-lg hover:bg-opacity-90 transition-colors flex items-center gap-2">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Sign in
         </a>
       {{end}}
-    </nav>
+    </div>
   </header>
 
-  <!-- Recent Activity Section -->
-  {{if .User}}
-  <div id="recent-activity" class="recent-activity w-full max-w-7xl px-4 mb-8">
-    <div class="toggle-buttons flex gap-4 mb-4">
-      <button id="btn-recent-texts" class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg" onclick="showRecent('text')">Recent Texts</button>
-      <button id="btn-recent-images" class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg" onclick="showRecent('image')">Recent Images</button>
+  <main class="flex-grow container mx-auto max-w-3xl px-4 pt-20 pb-32">
+    <div class="mb-8">
+      <h2 class="text-4xl font-semibold mb-12">Hey, how can I help?</h2>
     </div>
-    <div id="recent-texts" class="recent-section"></div>
-    <div id="recent-images" class="recent-section"></div>
-  </div>
-  {{end}}
 
-  <main class="w-full max-w-7xl px-4 flex-1 z-10">
-    <!-- Service Selection -->
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold mb-4">Choose a service</h2>
-      <nav class="flex gap-4">
-        <a href="#text-analysis" 
-           class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">
-          Text Analysis
-        </a>
-        <a href="#image-analysis" 
-           class="px-4 py-2 rounded-lg light-btn transition-all duration-300 hover:shadow-lg">
-          Image Analysis
-        </a>
-      </nav>
-    </section>
+    <!-- Messages Container -->
+    <div id="messages-container" class="space-y-6">
+      <!-- Messages will be inserted here -->
+    </div>
+  </main>
 
-    <!-- Text Analysis Section -->
-    <section id="text-analysis" class="mb-12">
-      <h3 class="text-xl font-semibold mb-4">Improve your writing</h3>
-      <div class="grid grid-cols-12 gap-4">
-        <!-- User Messages -->
-        <div id="text-user-messages" 
-             class="col-span-3 content-panel rounded p-3 column-bg">
-        </div>
-
-        <!-- Input Form -->
-        <div class="col-span-6 column-bg rounded p-4">
-          <form id="text-form"
-                hx-post="/generate"
-                hx-target="#text-api-responses"
-                hx-swap="beforeend"
-                class="flex flex-col gap-3">
-            
-            <textarea id="text-input"
-                      name="text"
-                      rows="4"
-                      class="w-full px-3 py-2 rounded"
-                      placeholder="Enter your text..."
-                      required></textarea>
-
-            <div class="flex items-center justify-end gap-3">
-              <div class="spinner" id="text-spinner"></div>
-              <button type="submit"
-                      class="px-5 py-2 font-medium rounded light-btn transition-all duration-300 hover:shadow-lg"
-                      disabled>
-                Generate
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- API Responses -->
-        <div id="text-api-responses" 
-             class="col-span-3 content-panel rounded p-3 column-bg">
-        </div>
-      </div>
-    </section>
-
-    <!-- Image Analysis Section -->
-    <section id="image-analysis" class="mb-12">
-      <h3 class="text-xl font-semibold mb-4">Analyze your image</h3>
-      <div class="grid grid-cols-12 gap-4">
-        <!-- User Images -->
-        <div id="image-user-messages" 
-             class="col-span-3 content-panel rounded p-3 column-bg">
-        </div>
-
-        <!-- Upload Form -->
-        <div class="col-span-6 column-bg rounded p-4">
+  <div class="fixed bottom-0 w-full bg-background/80 custom-blur py-6 rounded-t-lg">
+    <div class="container mx-auto max-w-3xl px-4">
+      <div class="relative">
+        <!-- Image Upload Overlay -->
+        <div id="upload-overlay" class="upload-overlay absolute bottom-full left-0 right-0 mb-4 bg-white rounded-lg shadow-lg p-4 opacity-0 pointer-events-none transform translate-y-2">
           <form id="image-form"
                 hx-post="/analyze-image"
-                hx-target="#image-api-responses"
-                hx-swap="beforeend"
+                hx-swap="none"
                 enctype="multipart/form-data"
-                class="flex flex-col gap-3">
-            
-            <label for="image-input"
-                   class="block w-full text-center px-4 py-3 rounded light-btn cursor-pointer transition-all duration-300 hover:shadow-lg">
-              Upload Image
-            </label>
-            <input type="file"
-                   id="image-input"
-                   name="image"
-                   accept="image/*"
-                   class="hidden"
-                   onchange="handleImageUpload(this)">
-
-            <div class="flex items-center justify-end gap-3">
-              <div class="spinner" id="image-spinner"></div>
+                class="space-y-4">
+            <div class="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-gray-300 transition-colors">
+              <label for="image-input" class="cursor-pointer block">
+                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p class="mt-2 text-sm text-gray-600">Click to upload or drag and drop</p>
+                <p class="mt-1 text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+              </label>
+              <input type="file"
+                     id="image-input"
+                     name="image"
+                     accept="image/*"
+                     class="hidden"
+                     onchange="handleImageUpload(this)">
+            </div>
+            <div id="image-preview" class="hidden">
+              <img id="preview-img" src="#" alt="Preview" class="max-h-48 mx-auto rounded-lg">
+              <button type="button" onclick="clearImageUpload()" class="mt-2 text-sm text-red-500 hover:text-red-600">
+                Remove
+              </button>
+            </div>
+            <div class="flex justify-end">
               <button type="submit"
-                      class="px-5 py-2 font-medium rounded light-btn transition-all duration-300 hover:shadow-lg"
+                      id="image-submit-btn"
+                      class="px-4 py-2 bg-black text-white rounded-lg hover:bg-opacity-90 transition-colors"
                       disabled>
                 Analyze Image
               </button>
@@ -360,241 +222,289 @@
           </form>
         </div>
 
-        <!-- API Responses -->
-        <div id="image-api-responses" 
-             class="col-span-3 content-panel rounded p-3 column-bg">
-        </div>
-      </div>
-    </section>
-  </main>
+        <form id="text-form"
+              hx-post="/generate"
+              hx-swap="none"
+              class="flex items-center gap-2 bg-white rounded-xl shadow-sm p-2">
 
-  <footer class="w-full max-w-7xl px-4 py-6 text-center text-sm z-10">
-    <p>&copy; 2025 go-rammarly. All rights reserved.</p>
-  </footer>
+          <button type="button" 
+                  onclick="toggleUploadOverlay()"
+                  class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <input type="text"
+                 id="text-input"
+                 name="text"
+                 class="flex-grow px-3 py-2 outline-none"
+                 placeholder="Message go-rammarly..."
+                 autocomplete="off">
+          <button type="submit"
+                  disabled
+                  class="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <script>
-    // Particle background
-    function createParticles() {
-      const container = document.getElementById('particles');
-      for (let i = 0; i < 20; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        particle.style.width = Math.random() * 5 + 'px';
-        particle.style.height = particle.style.width;
-        particle.style.left = Math.random() * 100 + 'vw';
-        particle.style.top = Math.random() * 100 + 'vh';
-        particle.style.animation = `float ${5 + Math.random() * 5}s ease-in-out infinite`;
-        container.appendChild(particle);
-      }
-    }
-
-    // Global pagination state for recent activity
-    let recentPages = { text: 1, image: 1 };
-
-    // DOM elements
+    // DOM Elements
     const textInput = document.getElementById('text-input');
     const textForm = document.getElementById('text-form');
-    const textSubmitBtn = textForm.querySelector('button[type="submit"]');
-    const textSpinner = document.getElementById('text-spinner');
-    const textUserMessages = document.getElementById('text-user-messages');
-    const textApiResponses = document.getElementById('text-api-responses');
-    const imageApiResponses = document.getElementById('image-api-responses');
+    const submitBtn = textForm.querySelector('button[type="submit"]');
+    const uploadOverlay = document.getElementById('upload-overlay');
     const imageForm = document.getElementById('image-form');
-    const imageSubmitBtn = imageForm.querySelector('button[type="submit"]');
-    const imageSpinner = document.getElementById('image-spinner');
+    const imageSubmitBtn = document.getElementById('image-submit-btn');
+    const messagesContainer = document.getElementById('messages-container');
 
-    // Enable/disable submit buttons based on input
+    // Toggle upload overlay
+    let isUploadOverlayVisible = false;
+    function toggleUploadOverlay() {
+      isUploadOverlayVisible = !isUploadOverlayVisible;
+      uploadOverlay.style.opacity = isUploadOverlayVisible ? '1' : '0';
+      uploadOverlay.style.transform = isUploadOverlayVisible ? 'translateY(0)' : 'translateY(2px)';
+      uploadOverlay.style.pointerEvents = isUploadOverlayVisible ? 'auto' : 'none';
+    }
+
+    // Handle text input
     textInput.addEventListener('input', () => {
-      textSubmitBtn.disabled = !textInput.value.trim();
+      submitBtn.disabled = !textInput.value.trim();
     });
 
-    function handleImageUpload(input) {
-      imageSubmitBtn.disabled = !input.files.length;
-      if (input.files.length) {
-        const imageURL = URL.createObjectURL(input.files[0]);
-        const preview = document.createElement('div');
-        preview.className = 'message-in p-2 mb-2 rounded bg-[rgba(240,237,204,0.1)]';
-        preview.innerHTML = `
-          <img src="${imageURL}" 
-               class="w-full h-32 object-cover rounded" 
-               alt="Upload Preview">
-        `;
-        document.getElementById('image-user-messages').appendChild(preview);
-        // Store image recent activity
-        storeRecentActivity('image', imageURL);
-      }
+    // Create message elements
+    function createUserMessage(content, type = 'text') {
+      const div = document.createElement('div');
+      div.className = 'flex justify-end message';
+      div.innerHTML = `
+        <div class="max-w-[80%] bg-black text-white rounded-2xl rounded-tr-sm px-4 py-2">
+          ${type === 'image' 
+            ? `<img src="${content}" alt="Uploaded image" class="max-h-48 rounded-lg">`
+            : `<p>${content}</p>`
+          }
+        </div>
+      `;
+      return div;
     }
 
-    // Function to simulate typing effect
-    function simulateTypingEffect(element, fullText, speed = 5) {
-      element.textContent = '';
-      let index = 0;
-      const interval = setInterval(() => {
-        element.textContent += fullText[index];
-        index++;
-        if(index >= fullText.length) clearInterval(interval);
-      }, speed);
-    }
+    function createBotMessage(content) {
+      const div = document.createElement('div');
+      div.className = 'flex message';
 
-    // Process new API response: animate typing and add copy button.
-    function processNewResponse(node) {
-      if (!node || node.nodeType !== 1) return;
-      let fullText = node.textContent.trim();
-      // Remove any "copy" prefix if present.
-      if (fullText.toLowerCase().startsWith("copy")) {
-        fullText = fullText.substring(4).trim();
-      }
-      node.textContent = '';
-      node.classList.add('relative');
-      const span = document.createElement('span');
-      span.className = 'response-text';
-      node.appendChild(span);
-      simulateTypingEffect(span, fullText, 5);
+      // Format the content and prepare for copy functionality
+      const formattedContent = formatResponse(content);
       
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'copy-btn absolute top-2 right-2 text-sm';
-      copyBtn.textContent = '📋';
-      copyBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        navigator.clipboard.writeText(fullText).then(() => {
-          copyBtn.textContent = '✅';
-          setTimeout(() => copyBtn.textContent = '📋', 2000);
-        });
-      });
-      node.appendChild(copyBtn);
+      div.innerHTML = `
+        <div class="max-w-[80%] bg-white shadow-sm rounded-2xl rounded-tl-sm px-4 py-3 response-container relative">
+          <div class="markdown pr-6">${formattedContent}</div>
+          <button onclick="copyToClipboard(this)" class="copy-button absolute top-2 right-2 p-1.5 hover:bg-gray-100 rounded-md transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div>
+      `;
+      return div;
     }
 
-    // HTMX Events for form submission
+    function createLoadingIndicator() {
+      const div = document.createElement('div');
+      div.className = 'flex message loading-indicator';
+      div.innerHTML = `
+        <div class="max-w-[80%] bg-white shadow-sm rounded-2xl rounded-tl-sm px-4 py-3">
+          <div class="skeleton-loader py-1">
+            <div class="skeleton-dot"></div>
+            <div class="skeleton-dot"></div>
+            <div class="skeleton-dot"></div>
+          </div>
+        </div>
+      `;
+      return div;
+    }
+
+    // Format the response with proper markdown and styling
+    function formatResponse(text) {
+      // Remove any "Corrected Text" prefix
+      text = text.replace(/^(Corrected Text|Copy)\s*/, '');
+      
+      // Preserve formatting for code blocks
+      text = text.replace(/```([\s\S]*?)```/g, function(match, code) {
+        return `<pre><code>${code}</code></pre>`;
+      });
+
+      // Convert markdown-style lists
+      text = text.replace(/^\s*-\s+(.*)/gm, '<li>$1</li>');
+      text = text.replace(/<li>(.*?)<\/li>/g, function(match) {
+        return '<ul>' + match + '</ul>';
+      });
+      text = text.replace(/<\/ul><ul>/g, '');
+
+      // Convert markdown-style bold text
+      text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      
+      // Convert markdown-style italic text
+      text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      
+      // Convert line breaks to paragraphs
+      const paragraphs = text.split(/\n\s*\n/);
+      return paragraphs.map(p => {
+        if (!p.trim()) return '';
+        if (p.includes('<pre>')) return p;
+        if (p.includes('<ul>')) return p;
+        return `<p>${p.replace(/\n/g, ' ')}</p>`;
+      }).join('');
+    }
+
+    // Copy to clipboard functionality
+    function copyToClipboard(button) {
+      const container = button.closest('.response-container');
+      const contentElement = container.querySelector('.markdown');
+      const text = contentElement.innerText;
+      
+      navigator.clipboard.writeText(text).then(() => {
+        // Show success indicator
+        const originalSVG = button.innerHTML;
+        button.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        `;
+        
+        // Revert back after 2 seconds
+        setTimeout(() => {
+          button.innerHTML = originalSVG;
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+      });
+    }
+
+    // Handle image upload
+    function handleImageUpload(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const previewImg = document.getElementById('preview-img');
+          const previewContainer = document.getElementById('image-preview');
+          previewImg.src = e.target.result;
+          previewContainer.classList.remove('hidden');
+          imageSubmitBtn.disabled = false;
+        }
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    function clearImageUpload() {
+      const previewContainer = document.getElementById('image-preview');
+      const imageInput = document.getElementById('image-input');
+      previewContainer.classList.add('hidden');
+      imageInput.value = '';
+      imageSubmitBtn.disabled = true;
+    }
+
+    // HTMX Events
     document.body.addEventListener('htmx:beforeRequest', (event) => {
       const form = event.detail.elt;
-      const spinner = form.querySelector('.spinner');
-      const submitBtn = form.querySelector('button[type="submit"]');
+      const isTextForm = form.id === 'text-form';
       
-      spinner.classList.add('active');
-      submitBtn.disabled = true;
+      // Add user message
+      const userContent = isTextForm ? textInput.value : URL.createObjectURL(form.image.files[0]);
+      const userMessage = createUserMessage(userContent, isTextForm ? 'text' : 'image');
+      messagesContainer.appendChild(userMessage);
+      setTimeout(() => userMessage.classList.add('show'), 0);
 
-      // For text form: append user's message and store activity
-      if (form.id === 'text-form') {
-        const message = textInput.value.trim();
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message-in p-2 mb-2 rounded bg-[rgba(240,237,204,0.1)]';
-        messageDiv.textContent = message;
-        textUserMessages.appendChild(messageDiv);
-        textUserMessages.scrollTop = textUserMessages.scrollHeight;
-        storeRecentActivity('text', message);
+      // Add loading indicator
+      const loadingIndicator = createLoadingIndicator();
+      loadingIndicator.id = 'current-loading-indicator';
+      messagesContainer.appendChild(loadingIndicator);
+      setTimeout(() => loadingIndicator.classList.add('show'), 0);
+
+      // Clear input
+      if (isTextForm) {
+        textInput.value = '';
+        submitBtn.disabled = true;
+      } else {
+        clearImageUpload();
+        toggleUploadOverlay();
       }
+
+      // Scroll to bottom
+      window.scrollTo(0, document.body.scrollHeight);
     });
 
     document.body.addEventListener('htmx:afterRequest', (event) => {
-      const form = event.detail.elt;
-      const spinner = form.querySelector('.spinner');
-      const submitBtn = form.querySelector('button[type="submit"]');
-      
-      spinner.classList.remove('active');
-      submitBtn.disabled = false;
+      // Remove loading indicator
+      const loadingIndicator = document.getElementById('current-loading-indicator');
+      if (loadingIndicator) {
+        loadingIndicator.remove();
+      }
 
-      if (form.id === 'text-form') {
-        textInput.value = '';
-        textApiResponses.scrollTop = textApiResponses.scrollHeight;
-      } else if (form.id === 'image-form') {
-        form.reset();
-        imageApiResponses.scrollTop = imageApiResponses.scrollHeight;
+      // Extract and add bot response
+      const responseText = extractResponseText(event.detail.xhr.response);
+      const botMessage = createBotMessage(responseText);
+      messagesContainer.appendChild(botMessage);
+      setTimeout(() => botMessage.classList.add('show'), 0);
+
+      // Scroll to bottom
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+
+    // Extract response text from HTML - FIXED to properly handle the response format from Go handlers
+    function extractResponseText(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  
+  // Try to get content from grammar-result or image-result
+  const resultElement = doc.querySelector('#grammar-result, #image-result');
+  let text = "";
+
+  if (resultElement) {
+    const resultTextElement = resultElement.querySelector('.result-text');
+    if (resultTextElement) {
+      text = resultTextElement.textContent.trim();
+    }
+  }
+
+  // If not found, try a fallback extraction
+  if (!text) {
+    const divs = doc.querySelectorAll('div');
+    for (const div of divs) {
+      if (div.textContent && div.textContent.trim() !== '') {
+        text = div.textContent.trim();
+        break;
+      }
+    }
+  }
+
+  // Remove a trailing curly bracket if it exists
+  if (text.endsWith('}')) {
+    text = text.slice(0, -1).trim();
+  }
+  
+  return text || "No response received. Please try again.";
+}
+
+
+    // Close upload overlay when clicking outside
+    document.addEventListener('click', (event) => {
+      if (isUploadOverlayVisible && !uploadOverlay.contains(event.target) && !event.target.closest('button[onclick="toggleUploadOverlay()"]')) {
+        toggleUploadOverlay();
       }
     });
 
-    // Observe new API responses in both text and image containers
-    const observerConfig = { childList: true };
-    const responseObserver = new MutationObserver((mutations) => {
-      mutations.forEach(mutation => {
-        mutation.addedNodes.forEach(node => {
-          if (node.nodeType === 1 && !node.querySelector('.copy-btn')) {
-            processNewResponse(node);
-          }
-        });
-      });
-    });
-    responseObserver.observe(textApiResponses, observerConfig);
-    responseObserver.observe(imageApiResponses, observerConfig);
-
-    // Recent Activity Management & Pagination
-
-    // Store recent activity without slicing off older items
-    function storeRecentActivity(type, content) {
-      const storageKey = `recent-${type}s`;
-      const recentItems = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      recentItems.unshift({ content, timestamp: new Date().toISOString() });
-      localStorage.setItem(storageKey, JSON.stringify(recentItems));
-      // Reset page to 1 when new activity is added
-      recentPages[type] = 1;
-      updateRecentActivity(type);
+    // Toggle history (placeholder)
+    function toggleHistory() {
+      alert('History feature coming soon!');
     }
 
-    // Update recent activity section with pagination (5 items per page)
-    function updateRecentActivity(type) {
-      const container = document.getElementById(`recent-${type}s`);
-      if (!container) return;
-      const storageKey = `recent-${type}s`;
-      const items = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const page = recentPages[type] || 1;
-      const pageSize = 5;
-      const startIndex = (page - 1) * pageSize;
-      const endIndex = startIndex + pageSize;
-      const pageItems = items.slice(startIndex, endIndex);
-      
-      container.innerHTML = pageItems.map(item => `
-        <div class="message-in p-2 rounded bg-[rgba(240,237,204,0.1)] mb-2">
-          ${type === 'text' 
-            ? `<p class="text-sm">${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}</p>`
-            : `<img src="${item.content}" class="w-full h-20 object-cover rounded" alt="Recent image">`
-          }
-          <small class="block mt-1 text-xs opacity-70">
-            ${new Date(item.timestamp).toLocaleString()}
-          </small>
-        </div>
-      `).join('');
-
-      let paginationHTML = '';
-      if (page > 1) {
-        paginationHTML += `<button onclick="changePage('${type}', -1)" class="px-2 py-1 rounded light-btn mr-2">Prev</button>`;
-      }
-      if (endIndex < items.length) {
-        paginationHTML += `<button onclick="changePage('${type}', 1)" class="px-2 py-1 rounded light-btn">Next</button>`;
-      }
-      container.innerHTML += `<div class="mt-2">${paginationHTML}</div>`;
-    }
-
-    // Change page for recent activity
-    function changePage(type, delta) {
-      recentPages[type] = (recentPages[type] || 1) + delta;
-      updateRecentActivity(type);
-    }
-
-    // Toggle between recent texts and recent images
-    function showRecent(type) {
-      const textsSection = document.getElementById('recent-texts');
-      const imagesSection = document.getElementById('recent-images');
-      if (type === 'text') {
-        textsSection.classList.add('active');
-        imagesSection.classList.remove('active');
-      } else {
-        imagesSection.classList.add('active');
-        textsSection.classList.remove('active');
-      }
-    }
-
-    // Toggle Recent Activity panel visibility
-    function toggleRecentActivity() {
-      const recentActivity = document.getElementById('recent-activity');
-      if (recentActivity) {
-        recentActivity.classList.toggle('visible');
-      }
-    }
-
-    // Initialize on DOMContentLoaded
+    // Initialize
     document.addEventListener('DOMContentLoaded', () => {
-      createParticles();
-      updateRecentActivity('text');
-      updateRecentActivity('image');
+      // Focus on text input
+      textInput.focus();
     });
   </script>
 </body>
