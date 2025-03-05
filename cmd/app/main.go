@@ -33,7 +33,7 @@ func main() {
 	projectRoot := filepath.Dir(filepath.Dir(cmdDir))
 	
 	// Construct full path to database file
-	dbPath := filepath.Join(projectRoot, "db.sqlite")
+	dbPath := filepath.Join(projectRoot, "./db.sqlite")
 	
 	log.Printf("Attempting to open database at: %s", dbPath)
 
