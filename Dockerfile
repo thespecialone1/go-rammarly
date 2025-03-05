@@ -12,7 +12,7 @@ COPY . .
 # Run your build command.
 RUN go mod tidy && go build -v -o app ./cmd/app/main.go
 
-# Final image.
+# Final image
 FROM alpine:latest
 WORKDIR /app
 
