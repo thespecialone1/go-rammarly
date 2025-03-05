@@ -3,7 +3,7 @@ module github.com/thespecialone1/go-rammerly
 go 1.24
 
 // Replace the module with the current local directory.
-replace github.com/thespecialone1/go-rammerly => .
+replace github.com/thespecialone1/go-rammerly => ./
 
 toolchain go1.24.0
 
