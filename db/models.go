@@ -12,6 +12,7 @@ type Activity struct {
 	ID        int64
 	UserID    int64
 	Type      string
+	Sender    string
 	Content   string
 	CreatedAt sql.NullTime
 }

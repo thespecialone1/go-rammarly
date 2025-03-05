@@ -6,13 +6,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	_ "modernc.org/sqlite" // Pure Go SQLite driver
 
 	"github.com/thespecialone1/go-rammerly/auth"
 	"github.com/thespecialone1/go-rammerly/db"
 	"github.com/thespecialone1/go-rammerly/handlers"
-	_"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv"
 	"github.com/thespecialone1/go-rammerly/config"
 )
 
@@ -21,12 +22,32 @@ func main() {
 	if err := config.LoadEnv(); err != nil {
 		log.Fatalf("Failed to load environment: %v", err)
 	}
-	// Open the SQLite database (db.sqlite will be created if it doesn't exist)
-	dbConn, err := sql.Open("sqlite", "./db.sqlite")
+
+	// Get the project root directory
+	cmdDir, err := os.Getwd()
 	if err != nil {
-		log.Fatal("Failed to connect to the database:", err)
+		log.Fatalf("Failed to get current working directory: %v", err)
+	}
+	
+	// Navigate to project root (assuming cmd/app is one level deep)
+	projectRoot := filepath.Dir(filepath.Dir(cmdDir))
+	
+	// Construct full path to database file
+	dbPath := filepath.Join(projectRoot, "db.sqlite")
+	
+	log.Printf("Attempting to open database at: %s", dbPath)
+
+	// Open the SQLite database 
+	dbConn, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		log.Fatalf("Failed to connect to the database: %v", err)
 	}
 	defer dbConn.Close()
+
+	// Verify database connection
+	if err := dbConn.Ping(); err != nil {
+		log.Fatalf("Failed to ping database: %v", err)
+	}
 
 	// Create the users table if it doesn't exist.
 	createTableSQL := `
@@ -39,8 +60,16 @@ func main() {
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 	if _, err := dbConn.Exec(createTableSQL); err != nil {
-		log.Fatal("Failed to create users table:", err)
+		log.Fatalf("Failed to create users table: %v", err)
 	}
+
+	// Verify table creation
+	var tableName string
+	err = dbConn.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").Scan(&tableName)
+	if err != nil {
+		log.Fatalf("Failed to verify users table creation: %v", err)
+	}
+	log.Println("Users table verified successfully")
 
 	// Initialize sqlc-generated queries.
 	queries := db.New(dbConn)
@@ -49,7 +78,6 @@ func main() {
 
 	// Initialize templates.
 	handlers.InitTemplates()
-
 
 	// Set up HTTP routes.
 	http.HandleFunc("/", handlers.HandleHome)
@@ -65,8 +93,6 @@ func main() {
 
 	// Serve static assets.
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-
-	
 
 	port := os.Getenv("PORT")
 	if port == "" {

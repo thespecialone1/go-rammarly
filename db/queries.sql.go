@@ -10,6 +10,28 @@ import (
 	"database/sql"
 )
 
+const createActivity = `-- name: CreateActivity :exec
+INSERT INTO activities (user_id, type, sender, content)
+VALUES (?, ?, ?, ?)
+`
+
+type CreateActivityParams struct {
+	UserID  int64
+	Type    string
+	Sender  string
+	Content string
+}
+
+func (q *Queries) CreateActivity(ctx context.Context, arg CreateActivityParams) error {
+	_, err := q.db.ExecContext(ctx, createActivity,
+		arg.UserID,
+		arg.Type,
+		arg.Sender,
+		arg.Content,
+	)
+	return err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (google_id, email, name, picture)
 VALUES (?, ?, ?, ?)
