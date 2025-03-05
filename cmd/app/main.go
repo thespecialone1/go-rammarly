@@ -23,19 +23,16 @@ func main() {
 		log.Fatalf("Failed to load environment: %v", err)
 	}
 
-	// Get the project root directory
 	cmdDir, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("Failed to get current working directory: %v", err)
 	}
-	
-	// Navigate to project root (assuming cmd/app is one level deep)
-	projectRoot := filepath.Dir(filepath.Dir(cmdDir))
-	
+
 	// Construct full path to database file
-	dbPath := filepath.Join(projectRoot, "./db.sqlite")
-	
+	dbPath := filepath.Join(cmdDir, "db.sqlite") // This assumes you're running from project root
+
 	log.Printf("Attempting to open database at: %s", dbPath)
+
 
 	// Open the SQLite database 
 	dbConn, err := sql.Open("sqlite", dbPath)
