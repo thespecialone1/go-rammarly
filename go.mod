@@ -1,6 +1,6 @@
 module github.com/thespecialone1/go-rammerly
 
-go 1.24
+go 1.19
 
 // Replace the module with the current local directory.
 replace github.com/thespecialone1/go-rammerly => ./
