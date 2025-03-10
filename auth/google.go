@@ -34,7 +34,7 @@ const (
 	// Environment URLs
 	localDevURL   = "http://localhost:8080"
 	renderDevURL  = "https://go-rammarly.onrender.com"
-	productionURL = "https://go-rammarly.duckdns.org"
+	productionURL = "https://go-rammarly.netlify.app"
 )
 
 // Environment variables
