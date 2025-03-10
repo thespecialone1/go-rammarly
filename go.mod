@@ -1,11 +1,11 @@
 module github.com/thespecialone1/go-rammerly
 
-go 1.22
+go 1.24.0
 
 // Replace the module with the current local directory.
 replace github.com/thespecialone1/go-rammerly => ./
 
-toolchain go1.22
+//toolchain go1.22
 
 require (
 	github.com/google/generative-ai-go v0.18.0
